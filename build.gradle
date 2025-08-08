@@ -1,0 +1,61 @@
+plugins {
+    id 'java'
+}
+
+group = 'cc.zyycc'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    minecraftVersion = '1.16.5'
+    forgeVersion = '36.2.34'
+    forgeFullVersion = "${minecraftVersion}-${forgeVersion}"
+    versionName = '1.0.0'
+    workingDir = ".${server_id}" 
+}
+
+
+
+//禁用编译
+tasks.named('jar').configure {
+    enabled = false
+}
+
+
+
+//编译
+tasks.register('collectJars', Copy) {
+    destinationDir = file('build/libs')
+    from { project(':zyy-launcher').tasks.jar.outputs }
+    dependsOn { project(':zyy-launcher').tasks.jar }
+}
+
+
+// root build.gradle
+tasks.build {
+    finalizedBy tasks.collectJars
+}
+
+
+test {
+    useJUnitPlatform()
+}
+
+
+jar {
+    manifest {
+        attributes(
+                'Premain-Class': 'cc.zyycc.ClasspathPrinterAgent',
+                'Manifest-Version': '1.0',
+                'Agent-Class': 'cc.zyycc.ClasspathPrinterAgent',
+                'Can-Redefine-Classes': 'true',
+                'Can-Retransform-Classes': 'true'
+        )
+    }
+    from{
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}

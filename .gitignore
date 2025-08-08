@@ -1,0 +1,29 @@
+# IntelliJ
+.idea/
+*.iml
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+installer_stripped.jar.log
+
+# Generated
+*.class
+out/
+
+# Other
+*.jar
+!lib/unsafe.jar
+*.war
+*.zip
+*.tmp
+*.bak

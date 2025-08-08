@@ -1,0 +1,186 @@
+import groovy.json.JsonSlurper
+import java.util.zip.ZipFile
+buildscript {
+    repositories {
+        mavenCentral()
+        maven { url = 'https://files.minecraftforge.net/maven' }
+        dependencies {
+            // 引入 ForgeGradle 插件
+            classpath 'net.minecraftforge.gradle:ForgeGradle:5.1.+'
+        }
+    }
+}
+plugins {
+    id 'java'
+}
+
+apply plugin: 'net.minecraftforge.gradle'
+
+group = 'cc.zyycc'
+version = '1.0.0'
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(8)
+}
+
+minecraft {
+    mappings channel: 'snapshot', version: '20210309-1.16.5'
+    runs {
+        client {
+            workingDirectory project.file('run')
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraftVersion}-${forgeVersion}"
+    implementation project(':zyy-core')
+    implementation project(':zyy-common')
+    implementation project(':zyy-installer')
+    implementation 'com.google.code.gson:gson:2.8.9'
+    implementation files("${rootDir}/libs/unsafe.jar")
+
+    compileOnly 'cpw.mods:modlauncher:8.1.3'
+    compileOnly 'net.minecraftforge:forgespi:3.2.0'
+
+}
+
+ext{
+    // Forge 安装器的远程下载地址（动态构建）
+    forgeInstallerUrl = "https://maven.minecraftforge.net/net/minecraftforge/forge/${forgeFullVersion}/forge-${forgeFullVersion}-installer.jar"
+    // 下载后本地保存的路径。这里是打包之前的路径
+    installerFile = file("build/forge_cache/forge-${forgeFullVersion}-installer.jar")
+
+}
+
+jar {
+    from {
+        zipTree(file("${rootDir}/libs/unsafe.jar"))
+    }
+    from {
+        project(':zyy-installer').sourceSets.main.output
+    }
+
+    manifest {
+        attributes(
+                'Implementation-Version': '1.0.0'
+        )
+    }
+}
+
+
+
+def generatedSrcDir = file("$buildDir/generated-src")
+
+
+
+
+// 🔽 自动下载 Forge 安装器（如果本地不存在）
+tasks.register('downloadInstaller') {
+    outputs.file installerFile
+    doLast {
+        if (!installerFile.exists()) {
+            println "⏬ 下载 Forge 安装器..."
+            new URL(forgeInstallerUrl as String).withInputStream { i ->
+                installerFile.withOutputStream { it << i }
+            }
+            println "✅ 下载完成: ${installerFile}"
+        }
+    }
+}
+// 📦 确保打包 JAR 前已下载好安装器（依赖执行顺序）
+jar.dependsOn downloadInstaller
+
+tasks.register('generateVersionInfo') {
+    dependsOn 'downloadInstaller' // ✅ 必须在外面
+
+    doLast {
+        println "📦 开始生成 VersionInfo.java..."
+        println "🔍 installerFile 路径: ${installerFile}"
+        println "🔍 installerFile 是否存在: ${installerFile.exists()}"
+
+        def pkgDir = new File(generatedSrcDir, "cc/zyycc/common")
+        pkgDir.mkdirs()
+        def versionFile = new File(pkgDir, "VersionInfo.java")
+
+        def mcpVersion = "UNKNOWN"
+        def zipFile = new ZipFile(installerFile)
+        def versionEntry = zipFile.getEntry("version.json")
+        //install.json
+        def installProfileEntry = zipFile.getEntry("install_profile.json")
+        if (versionEntry != null) {
+            def jsonText = zipFile.getInputStream(versionEntry).getText("UTF-8")
+            // println "📄 version.json 内容如下：\n" + jsonText
+            def json = new JsonSlurper().parseText(jsonText)
+            def gameArgs = json?.arguments?.game
+            if (gameArgs instanceof List) {
+                def idx = gameArgs.indexOf("--fml.mcpVersion")
+                if (idx != -1 && idx + 1 < gameArgs.size()) {
+                    mcpVersion = gameArgs[idx + 1]
+                    println "成功提取 MCP 版本: ${mcpVersion}"
+                } else {
+                    println "未找到 --fml.mcpVersion 参数"
+                }
+            } else {
+                println " arguments.game 不是数组"
+            }
+        } else {
+            println " version.json 文件未找到"
+        }
+        //install
+        if (installProfileEntry != null) {
+            def profileText = zipFile.getInputStream(installProfileEntry).getText("UTF-8")
+            def installJson = new JsonSlurper().parseText(profileText)
+
+            def libs = installJson.libraries
+            def repoDefault = "https://maven.minecraftforge.net/"
+
+            def forgeDeps = []
+            libs.each { lib ->
+                def name = lib.name
+                def repo = lib.containsKey("url") ? lib.url : repoDefault
+                def parts = name.split(":")
+                if (parts.length == 3) {
+                    def (groupId, artifactId, version) = parts
+                    def groupPath = groupId.replace('.', '/')
+                    def jarName = "${artifactId}-${version}.jar"
+                    def jarPath = "${groupPath}/${artifactId}/${version}/${jarName}"
+                    def fullUrl = "${repo}${jarPath}"
+                    forgeDeps << fullUrl
+                }
+            }
+
+            versionFile.text = """
+            package cc.zyycc.common;
+
+            public class VersionInfo {
+                public static final String MINECRAFT_VERSION = "${minecraftVersion}";
+                public static final String FORGE_VERSION = "${forgeVersion}";
+                public static final String VERSION_NAME = "${versionName}";
+                public static final String FORGE_FULL_VERSION = "${forgeFullVersion}";
+                public static final String INTERNALPATH = "${server_id}";
+                public static final String INTERNALPATH_INSTALL_DIR = "${server_id}/forge-${forgeFullVersion}-installer.jar";
+                public static final String WORKING_DIR = "${workingDir}";
+                public static final String INSTALLER_FILE = "${workingDir}/forge-${forgeFullVersion}-installer.jar";
+                public static final String FORGE_LOCAL_PATH = ".";
+                public static final String MCP_VERSION = "${mcpVersion}";
+                public static final String[] LAUNCHER_ARGS = new String[] {
+                 "--gameDir", ".", 
+                 "--launchTarget", "fmlserver",
+                 "--fml.mcVersion", "${minecraftVersion}",
+                 "--fml.forgeVersion", "${forgeVersion}",
+                 "--fml.mcpVersion", "${mcpVersion}",
+                 "--fml.forgeGroup", "net.minecraftforge",
+                };
+                public static final String[] FORGE_DEPENDENCIES = new String[] {
+                    ${forgeDeps.collect { "\"${it}\"" }.join(",\n                    ")}
+                };                
+            }
+        """
+            println "✅ 生成完成: VersionInfo.java"
+        }
+    }
+}
+//依赖
+    compileJava.dependsOn(generateVersionInfo)
+    sourceSets.main.java.srcDirs += generatedSrcDir
