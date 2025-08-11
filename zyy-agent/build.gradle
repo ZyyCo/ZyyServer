@@ -1,0 +1,28 @@
+plugins {
+    id 'java'
+}
+
+group = 'cc.zyycc'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+jar {
+    manifest {
+        attributes(
+                'Premain-Class': 'cc.zyycc.agent.ClasspathAgent',
+                'Agent-Class': 'cc.zyycc.agent.ClasspathAgent',
+                'Can-Redefine-Classes': 'true',
+                'Can-Retransform-Classes': 'true'
+        )
+    }
+}
+dependencies {
+    implementation 'org.javassist:javassist:3.29.2-GA'
+    implementation 'org.ow2.asm:asm:9.8'
+    implementation 'org.ow2.asm:asm-tree:9.8'
+    implementation project(':zyy-core')
+    implementation project(':zyy-common')
+}

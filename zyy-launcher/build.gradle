@@ -1,0 +1,82 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'cc.zyycc'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly files({ project(':zyy-forge').tasks.named('jar').get().archiveFile.get().asFile })
+
+
+    implementation project(':zyy-agent')
+    implementation project(':zyy-core')
+    implementation project(':zyy-common')
+}
+jar {
+    //打包到MAIN文件里
+    manifest {
+        attributes(
+                'Main-Class': 'cc.zyycc.launcher.Launcher',
+        )
+    }
+
+
+
+    // 把  编译好的 jar打进来
+    from({ project(':zyy-forge').tasks.named('jar').get().archiveFile }) {
+        into "${server_id}"
+        rename { 'zyy.jar' }
+    }
+
+    // 加入 Forge 模块中下载好的 installer 文件
+    // 注意：installerFile 是 zyy-forge 模块里定义并通过 ext 暴露的变量
+    from(project(':zyy-forge').installerFile) {
+        into "${server_id}"
+    }
+
+    from({
+        project(':zyy-core').tasks.named('jar').get().archiveFile.get().asFile
+    }) {
+        into("${server_id}")
+        rename { fileName -> "zyy-core.jar" }
+    }
+
+    from({
+        project(':zyy-common').tasks.named('jar').get().archiveFile.get().asFile
+    }) {
+        into("${server_id}")
+        rename { fileName -> "zyy-common.jar" }
+    }
+
+
+    from({
+        project(':zyy-agent').tasks.named('jar').get().archiveFile.get().asFile
+    }) {
+        into("${server_id}")
+        rename { fileName -> "zyy-agent.jar" }
+    }
+
+
+}
+application {
+    mainClass.set("cc.zyycc.launcher.Launcher")
+}
+
+tasks.run {
+    dependsOn tasks.jar // 确保 jar 构建好
+
+    // 把自己刚打包出来的 fat jar 加入 classpath
+    classpath = files(jar.archiveFile)
+
+    workingDir = project.projectDir
+    standardInput = System.in
+
+}
+
+

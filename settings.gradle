@@ -1,0 +1,9 @@
+rootProject.name = 'ZyyServer'
+
+include 'zyy-core'
+include 'zyy-forge'
+include 'zyy-launcher'
+include 'zyy-installer'
+include 'zyy-agent'
+include 'zyy-common'
+
