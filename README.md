@@ -52,11 +52,13 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 ---
 
 ### 启动方式 🚀
-> agent挂载方式启动，需两个文件：`zyy-common.jar` 和 `zyy-launcher.jar`（文件名按编译后的名称为准）。
+> agent挂载方式启动，需两个文件：`zyy-common.jar` 和 `zyy-launcher.jar`（文件名按编译后的名称为准）。  
 > `-javaagent` 用于挂载 ZyyLoader 的增强功能。
-> 
+
 ```bash
 java -javaagent:zyy-common.jar -jar zyy-launcher.jar
+``` 
+
 ---
 
 本项目公开只是作为「个人云备份」，无商业意图，也不代表正式发布。  
