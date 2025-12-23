@@ -1,0 +1,5 @@
+PK: org/bukkit/craftbukkit/v1_16_R3 org/bukkit/craftbukkit/v1165
+#MD: org/bukkit/craftbukkit/v1_16_R3/CraftServer/<init> (Lnet/minecraft/server/v1_16_R3/DedicatedServer;Lnet/minecraft/server/v1_16_R3/PlayerList;)V org/bukkit/craftbukkit/v1165/CraftServer/<init> (Lnet/minecraft/server/dedicated/DedicatedServer;Lnet/minecraft/server/management/PlayerList;)V
+CL: net/minecraft/server/v1_16_R3/DedicatedServer net/minecraft/server/dedicated/DedicatedServer
+CL: net/minecraft/server/v1_16_R3/PlayerList net/minecraft/server/management/PlayerList
+CL: net/minecraft/server/v1_16_R3/IMaterial net/minecraft/util/IItemProvider

@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "cc.zyycc.zyyserver.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "refmap": "mixins.zyy.refmap.json",
+  "mixins": [
+    "PlayerListMixin2"
+  ],
+  "client": [
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

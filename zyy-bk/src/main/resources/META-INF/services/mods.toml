@@ -1,0 +1,15 @@
+modLoader="javafml"
+loaderVersion="[34,]"
+issueTrackerURL="http://zyyaruzi.com/"
+logoFile="logo.png"
+license="LGPL v2.1"
+
+[[mods]]
+modId="zyyserver"
+displayName="zyyserverMod"
+authors="Zyy"
+version="1.0.0-dev"
+credits="🤡"
+description='''
+    菜鸡没有描述
+    '''

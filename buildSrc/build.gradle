@@ -1,0 +1,19 @@
+plugins {
+    id 'java-gradle-plugin'
+}
+repositories {
+    mavenCentral()
+}
+gradlePlugin {
+    plugins {
+        pluginExtension {
+            id = "cc.zyycc.gradle"
+            implementationClass = "cc.zyycc.gradle.PluginExtension"
+        }
+    }
+}
+
+
+dependencies {
+    implementation 'org.ow2.asm:asm:9.8'
+}

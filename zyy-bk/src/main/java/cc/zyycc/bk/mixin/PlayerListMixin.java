@@ -12,8 +12,6 @@ import net.minecraft.server.management.PlayerList;
 import net.minecraft.util.registry.DynamicRegistries;
 import net.minecraft.world.storage.PlayerData;
 
-
-import org.bukkit.craftbukkit.v1165.CraftServer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -22,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.net.URL;
 import java.net.URLClassLoader;
 
-@Mixin(PlayerList.class)
+
 public abstract class PlayerListMixin2 {
     static {
         try {
@@ -35,7 +33,7 @@ public abstract class PlayerListMixin2 {
         }
     }
 
-    @Inject(method = "<init>", at = @At(value = "RETURN"))
+   // @Inject(method = "<init>", at = @At(value = "RETURN"))
     private void PlayerListMixinCode(MinecraftServer minecraftServer, DynamicRegistries.Impl p_i231425_2_, PlayerData p_i231425_3_, int p_i231425_4_, CallbackInfo ci) {
         System.out.println("Mixin类的ClassLoader: " + this.getClass().getClassLoader());
         try {
@@ -56,10 +54,6 @@ public abstract class PlayerListMixin2 {
             e.printStackTrace();
         }
 
-        System.out.println("之后" + CraftServer.class.getClassLoader());
-        System.out.println("之后" + Thread.currentThread().getContextClassLoader());
-        //System.out.println(CraftServer.class.getClassLoader());
-       CraftServer craftServer = new CraftServer((DedicatedServer) minecraftServer, (PlayerList) (Object) this);
 
 
         // BKMain.create((DedicatedServer)minecraftServer, (PlayerList) (Object)this);
