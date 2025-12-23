@@ -1,22 +1,38 @@
-package cc.zyycc.common.mapper.method;
+package cc.zyycc.remap.method;
 
-import cc.zyycc.common.mapper.MappingEntry;
 
+import cc.zyycc.remap.BaseEntry;
+import cc.zyycc.remap.MappingUtil;
+
+import java.lang.reflect.Method;
 import java.util.Objects;
 
-public class MethodMappingEntry extends MappingEntry {
-
+public class MethodMappingEntry extends BaseEntry {
     private String methodName;
     private String params;
     private String methodDesc;
     private String returnType;
 
-
     private MethodMappingEntry(String className, String methodName, String params, String returnType) {
-        this.className = className.replace(".", "/");
+        super(className, null);
         this.methodName = methodName;
         this.params = params;
         this.returnType = returnType;
+    }
+
+    @Override
+    public MethodMappingEntry recreate(String value) {
+        // value: owner/methodName desc
+        int space = value.indexOf(' ');
+        String ownerAndMethod = value.substring(0, space);
+        String desc = value.substring(space + 1);
+
+        // 分离 className 与 methodName
+        int last = ownerAndMethod.lastIndexOf('/');
+        String className = ownerAndMethod.substring(0, last);
+        String methodName = ownerAndMethod.substring(last + 1);
+
+        return MethodMappingEntry.create(className, methodName, desc);
     }
 
 
@@ -44,10 +60,6 @@ public class MethodMappingEntry extends MappingEntry {
         return entry;
     }
 
-    public static MethodMappingEntry createClassName(String className) {
-        return new MethodMappingEntry(className, null, null, null);
-    }
-
     public static MethodMappingEntry createSearchEntry(String className, String methodName, String methodParams) {
         return new MethodMappingEntry(className, methodName, methodParams, "V");
     }
@@ -59,7 +71,6 @@ public class MethodMappingEntry extends MappingEntry {
     public static MethodMappingEntry createSearchEntry(String className, String methodName, String methodParams, String returnType) {
         return new MethodMappingEntry(className, methodName, methodParams, returnType);
     }
-
 
 
     public String getMethodName() {
@@ -80,7 +91,7 @@ public class MethodMappingEntry extends MappingEntry {
     }
 
 
-    public String generateMethod() {
+    public String generate() {
         String desc;
         if (this.methodDesc == null) {
             desc = "(" +
@@ -137,4 +148,31 @@ public class MethodMappingEntry extends MappingEntry {
     public void setMethodName(String methodName) {
         this.methodName = methodName;
     }
+
+    public Method anewExecuteMethod(ClassLoader loader, Class<?>... params) {
+        try {
+            Class<?> target = Class.forName(className.replace("/", "."), false, loader);
+            try {
+                return target.getDeclaredMethod(methodName, params);
+            } catch (NoSuchMethodException ignore) {
+                return target.getMethod(methodName, params);
+            }
+
+        } catch (ClassNotFoundException | NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public Class<?>[] getNewParams(MethodMappingEntry oldEntry, Class<?>[] originParams, ClassLoader classLoader) {
+        try {
+            if (oldEntry.getParams().equals(this.params)) {
+                return MappingUtil.getParams(classLoader, this.methodDesc);
+            }
+            return originParams;
+        } catch (ClassNotFoundException ignored) {
+        }
+        return originParams;
+    }
+
+
 }

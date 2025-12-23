@@ -2,7 +2,10 @@ plugins {
     id 'java'
     id 'application'
 }
-
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
 group = 'cc.zyycc'
 version = '1.0.0'
 
@@ -12,13 +15,18 @@ repositories {
 
 dependencies {
     compileOnly files({ project(':zyy-forge').tasks.named('jar').get().archiveFile.get().asFile })
-
-
     implementation project(':zyy-agent')
     implementation project(':zyy-core')
     implementation project(':zyy-common')
+    implementation files("$buildDir/enhanced/enhanced-classes-1.0.0.jar")
+    //implementation files("${rootDir}/libs/unsafe.jar")
 }
 jar {
+    dependsOn ':zyy-common:jar'
+    dependsOn ':zyy-core:jar'
+    dependsOn ':zyy-agent:jar'
+    dependsOn ':zyy-forge:jar'
+    dependsOn ':zyy-bridge:jar'
     //打包到MAIN文件里
     manifest {
         attributes(
@@ -27,18 +35,12 @@ jar {
     }
 
 
-
     // 把  编译好的 jar打进来
     from({ project(':zyy-forge').tasks.named('jar').get().archiveFile }) {
         into "${server_id}"
         rename { 'zyy.jar' }
     }
 
-    // 加入 Forge 模块中下载好的 installer 文件
-    // 注意：installerFile 是 zyy-forge 模块里定义并通过 ext 暴露的变量
-    from(project(':zyy-forge').installerFile) {
-        into "${server_id}"
-    }
 
     from({
         project(':zyy-core').tasks.named('jar').get().archiveFile.get().asFile
@@ -56,27 +58,86 @@ jar {
 
 
     from({
-        project(':zyy-agent').tasks.named('jar').get().archiveFile.get().asFile
+        project(':zyy-bk').tasks.named('jar').get().archiveFile.get().asFile
     }) {
         into("${server_id}")
-        rename { fileName -> "zyy-agent.jar" }
+        rename { fileName -> "zyy-bk.jar" }
     }
-
-
 }
 application {
     mainClass.set("cc.zyycc.launcher.Launcher")
 }
 
+def enhancedFile = file("$buildDir/enhanced/enhanced-classes-1.0.0.jar.jar")
 tasks.run {
-    dependsOn tasks.jar // 确保 jar 构建好
+    dependsOn ':zyy-launcher:jar'
 
-    // 把自己刚打包出来的 fat jar 加入 classpath
-    classpath = files(jar.archiveFile)
-
+    mainClass.set('-jar')
+    classpath = files()
     workingDir = project.projectDir
     standardInput = System.in
 
+    def commonJar = project(':zyy-common').tasks.named('jar').get().archiveFile.get().asFile
+    def launcherJar = project(':zyy-launcher').tasks.named('jar').get().archiveFile.get().asFile
+
+    jvmArgs = [
+            "-javaagent:${commonJar.absolutePath}",
+            "-Xdebug",
+            '-Dorg.gradle.offline=true',
+            "-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005"
+    ]
+
+    args = ["${launcherJar.absolutePath}"]
+
+}
+//tasks.run {
+//    dependsOn tasks.jar
+//    dependsOn ':zyy-common:jar'
+//
+//    mainClass.set('cc.zyycc.launcher.Launcher')
+//
+//    classpath = files(
+//            "libraries/org/apache/logging/log4j/log4j-api/2.15.0/log4j-api-2.15.0.jar",
+//            "libraries/org/apache/logging/log4j/log4j-core/2.15.0/log4j-core-2.15.0.jar",
+//            "libraries/org/apache/logging/log4j/log4j-slf4j18-impl/2.15.0/log4j-slf4j18-impl-2.15.0.jar",
+//            jar.archiveFile //  把 launcher 自己也加入
+//    )
+//
+//    workingDir = project.projectDir
+//    standardInput = System.in
+//
+//    def commonJar = project(':zyy-common').tasks.named('jar').get().archiveFile.get().asFile
+//    jvmArgs = [
+//            "-javaagent:${commonJar.absolutePath}",
+//            "-Xdebug",
+//            "-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005"
+//    ]
+//}
+
+
+tasks.register('packEnhancedJar', Jar) {
+    archiveBaseName.set('enhanced-classes')
+    def agent = project(':zyy-launcher').file('agent')
+    from(agent) {
+        include '**/*.class'
+    }
+
+    destinationDirectory.set(file("$buildDir/enhanced"))
+}
+
+tasks.register("remapEnhanced") {
+    def enhancedJar = tasks.named('packEnhancedJar').get().archiveFile.get().asFile
+    dependsOn(project.tasks.getByName("packEnhancedJar"))
+    doLast {
+        def task = tasks.create('remapEnhancedJar', net.minecraftforge.gradle.userdev.tasks.RenameJarInPlace)
+
+        def remapTsrg = project(':zyy-bk').file("build/createMcpToSrg/output.tsrg")
+        task.input.set(enhancedJar)
+        task.mappings.set(remapTsrg)
+        task.args.add('--reverse')
+
+        task.apply()
+    }
 }
 
 

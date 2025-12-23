@@ -1,30 +1,25 @@
 package cc.zyycc.forge;
 
-import cc.zyycc.common.VersionInfo;
-import cc.zyycc.common.bridge.BridgeHolder;
-import cc.zyycc.core.util.ClassPathUtils;
-import cc.zyycc.core.util.LoaderHandler;
-import cc.zyycc.core.util.ResourceUtils;
-import cc.zyycc.installer.InstallForge;
-import cc.zyycc.zyyaruzi.UnsafeHelper;
-import cpw.mods.modlauncher.api.*;
 
+import cc.zyycc.common.VersionInfo;
+import cc.zyycc.common.bridge.InstrumentationBridge;
+import cc.zyycc.common.bridge.PreScanBridge;
+import cc.zyycc.common.util.ServerUtil;
+import cpw.mods.modlauncher.Launcher;
+import net.minecraft.command.Commands;
+import org.apache.logging.log4j.util.StackLocator;
 
 import java.io.*;
+import java.lang.instrument.ClassDefinition;
+import java.lang.instrument.Instrumentation;
 import java.lang.reflect.*;
-
-import java.net.MalformedURLException;
-import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.security.CodeSource;
-import java.security.ProtectionDomain;
-import java.security.cert.Certificate;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.*;
@@ -32,137 +27,166 @@ import java.util.stream.Collectors;
 
 
 public class MainForge {
-    public static List<Path> classPath = new ArrayList<>();
-    public static List<Path> systemClassPath = new ArrayList<>();
-
-    public static void startForgeServer(String[] args) throws Exception {
-
-        String minecraftVersion = VersionInfo.MINECRAFT_VERSION;
-        String forgeVersion = VersionInfo.FORGE_VERSION;
-        String forgeLocalPath = VersionInfo.FORGE_LOCAL_PATH;
-        // Path argsPath = ForgeResolver.getForgeFormArgsPath(minecraftVersion, forgeVersion, forgeLocalPath);
-
-        String[] parts = minecraftVersion.split("\\.");
-        int major = Integer.parseInt(parts[0]);
-        int minor = Integer.parseInt(parts[1]);
+    public static void startForgeServer(String[] args, boolean canStart) {
 
 
-        Path forgePath = Paths.get(forgeLocalPath, "forge-" + VersionInfo.FORGE_FULL_VERSION + ".jar");
-        //安装
-        String[] libs = installForge(forgePath);
+//      classPath.add(spigotJar);
 
-        punchForge1165_hardcoded(args, libs, forgePath);
+//        LibManager.addLibrary(libraries);
 
-    }
+        //LibManager.addLibrary(Arrays.asList(libraries), Arrays.asList("log4j-slf4j18-impl"));
+//        classPath.add(Paths.get("libraries/org/ow2/asm/asm/9.1/asm-9.1.jar"));
+//        classPath.add(Paths.get("libraries/org/ow2/asm/asm-commons/9.1/asm-commons-9.1.jar"));
+//        classPath.add(Paths.get("libraries/org/ow2/asm/asm-tree/9.1/asm-tree-9.1.jar"));
+//        classPath.add(Paths.get("libraries/org/ow2/asm/asm-util/9.1/asm-util-9.1.jar"));
+//        classPath.add(Paths.get("libraries/net/sf/jopt-simple/jopt-simple/5.0.4/jopt-simple-5.0.4.jar"));
+//        classPath.add(Paths.get("libraries/org/spongepowered/mixin/0.8.4/mixin-0.8.4.jar"));
 
-    public static String[] installForge(Path forgeJar) throws IOException, InterruptedException {
-        return InstallForge.checkOrInstall(VersionInfo.INTERNALPATH_INSTALL_DIR,
-                VersionInfo.INSTALLER_FILE, VersionInfo.FORGE_LOCAL_PATH, forgeJar,
-                () -> ClassPathUtils.loadClassPath(forgeJar));
-    }
+        //LibManager.addLibrary("libraries/org/ow2/asm/asm/9.1/asm-9.1.jar");
+//        LibManager.addLibrary("libraries/org/ow2/asm/asm-commons/9.1/asm-commons-9.1.jar");
+//        LibManager.addLibrary("libraries/org/ow2/asm/asm-tree/9.1/asm-tree-9.1.jar");
+//        LibManager.addLibrary("libraries/org/ow2/asm/asm-util/9.1/asm-util-9.1.jar");
+//        LibManager.addLibrary("libraries/org/ow2/asm/asm-analysis/9.1/asm-analysis-9.1.jar");
+//        LibManager.addLibrary("libraries/cpw/mods/modlauncher/8.1.3/modlauncher-8.1.3.jar");
+//        LibManager.addLibrary("libraries/cpw/mods/grossjava9hacks/1.3.3/grossjava9hacks-1.3.3.jar");
+//        LibManager.addLibrary("libraries/net/minecraftforge/accesstransformers/3.0.1/accesstransformers-3.0.1.jar");
+//        LibManager.addLibrary("libraries/org/antlr/antlr4-runtime/4.9.1/antlr4-runtime-4.9.1.jar");
+//        LibManager.addLibrary("libraries/net/minecraftforge/eventbus/4.0.0/eventbus-4.0.0.jar");
+//        LibManager.addLibrary("libraries/net/minecraftforge/forgespi/3.2.0/forgespi-3.2.0.jar");
+//        LibManager.addLibrary("libraries/net/minecraftforge/coremods/4.0.6/coremods-4.0.6.jar");
+//        LibManager.addLibrary("libraries/net/minecraftforge/unsafe/0.2.0/unsafe-0.2.0.jar");
+//        LibManager.addLibrary("libraries/com/electronwill/night-config/core/3.6.3/core-3.6.3.jar");
+//        LibManager.addLibrary("libraries/com/electronwill/night-config/toml/3.6.3/toml-3.6.3.jar");
+//        LibManager.addLibrary("libraries/org/jline/jline/3.12.1/jline-3.12.1.jar");
+//        LibManager.addLibrary("libraries/org/apache/maven/maven-artifact/3.6.3/maven-artifact-3.6.3.jar");
+//        LibManager.addLibrary("libraries/net/jodah/typetools/0.8.3/typetools-0.8.3.jar");
+//        LibManager.addLibrary("libraries/org/apache/logging/log4j/log4j-api/2.15.0/log4j-api-2.15.0.jar");
+//        LibManager.addLibrary("libraries/org/apache/logging/log4j/log4j-core/2.15.0/log4j-core-2.15.0.jar");
+//        // LibManager.addLibrary("libraries/org/apache/logging/log4j/log4j-slf4j18-impl/2.15.0/log4j-slf4j18-impl-2.15.0.jar");
+//        LibManager.addLibrary("libraries/net/minecrell/terminalconsoleappender/1.2.0/terminalconsoleappender-1.2.0.jar");
+//        LibManager.addLibrary("libraries/net/sf/jopt-simple/jopt-simple/5.0.4/jopt-simple-5.0.4.jar");
+//        LibManager.addLibrary("libraries/org/spongepowered/mixin/0.8.4/mixin-0.8.4.jar");
+//        LibManager.addLibrary("libraries/net/minecraftforge/nashorn-core-compat/15.1.1.1/nashorn-core-compat-15.1.1.1.jar");
+//        LibManager.addLibrary("libraries/net/minecraft/server/1.16.5-20210115.111550/server-1.16.5-20210115.111550-extra.jar");
 
+//        LibManager.addLibrary(extraLibraries);
+//        LibManager.generateAppClassLoader();
+//
+//        classPath.add(new File("libraries/com/google/guava/guava/25.1-jre/guava-25.1-jre.jar").toPath());
+//
+//        classPath.add(forgeJar);
+//        classPath.add(Paths.get(VersionInfo.WORKING_DIR, "zyyaruzi.jar"));
+//
+//        URL[] urls = classPath.stream().map(path -> {
+//            try {
+//                return path.toUri().toURL();
+//            } catch (MalformedURLException e) {
+//                e.printStackTrace();
+//            }
+//            return null;
+//        }).toArray(URL[]::new);
 
-    public static Path resolveLocalPath(String url) {
-        String relative = url.replaceFirst("^https?://[^/]+/", "");
-        return Paths.get("libs").resolve(relative.replace("/", File.separator));
-    }
+//        ClassLoader myLoader = new URLClassLoader(urls, ClassLoader.getSystemClassLoader());
 
+//        ClassLoader myLoader = MainForge.class.getClassLoader();
+//
+//        LoaderHandler.addToPaths(myLoader, classPath);
 
-    public static void punchForge1165_hardcoded(String[] args, String[] libraries, Path forgeJar) throws Exception {
-
-        systemClassPath.add(new File("libraries/org/apache/logging/log4j/log4j-api/2.15.0/log4j-api-2.15.0.jar").toPath());
-        systemClassPath.add(new File("libraries/org/apache/logging/log4j/log4j-core/2.15.0/log4j-core-2.15.0.jar").toPath());
-        systemClassPath.add(new File("libraries/org/apache/logging/log4j/log4j-slf4j18-impl/2.15.0/log4j-slf4j18-impl-2.15.0.jar").toPath());
-        classPath.add(new File("libraries/com/google/guava/guava/25.1-jre/guava-25.1-jre.jar").toPath());
-
-        classPath.add(forgeJar);
-        classPath.add(Paths.get(VersionInfo.WORKING_DIR, "zyyaruzi.jar"));
-
-        //   classPath.add(new File(VersionInfo.FORGE_LOCAL_PATH, "libraries/net/minecraftforge/forge/1.16.5-36.2.34/forge-1.16.5-36.2.34-server.jar").toPath());
-
-        //systemClassPath.add(new File("libraries/com/google/guava/guava/20.0/guava-20.0.jar").toPath());
-        Path modLauncherPath = null;
-
-//        String[] mustAdd = {
-////                "modlauncher", "modlauncher-api", "modlauncher-serviceapi","net.minecraftforge", "grossjava9hacks",""
-////                "log4j",  "jopt-simple", "mixin", "forgespi", "guava", "modlauncher"
-//                "asm",
-//        };
-
-
-        for (String lib : libraries) {
-            if (lib == null) continue;
-            Path libPath = Paths.get(lib);
-            if (lib.contains("modlauncher-")) {
-                modLauncherPath = libPath;
-//                classPath.add(libPath);
-//                continue;
-            }
-
-            systemClassPath.add(libPath);
-        }
-
-        systemClassPath.add(new File(VersionInfo.FORGE_LOCAL_PATH, "minecraft_server.1.16.5.jar").toPath());
-
-
-        ClassLoader appLoader = ClassLoader.getSystemClassLoader();
-
-        LoaderHandler.addToPaths(appLoader, systemClassPath);
-
-
-        URL[] urls = classPath.stream()
-                .map(path -> {
-                    try {
-                        return path.toUri().toURL();
-                    } catch (MalformedURLException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .toArray(URL[]::new);
-
-        URLClassLoader myLoader = new URLClassLoader(urls, appLoader);
-
-
-        BridgeHolder.INSTANCE.setClassLoader(myLoader);
-
-
-
-
-
-
-
-        //bk
-//        Path cacheBK = Paths.get(VersionInfo.WORKING_DIR, "bkao.jar");
-//        URLClassLoader bkLoader = new URLClassLoader(new URL[]{cacheBK.toUri().toURL()}, myLoader);
-//        Class.forName("cc.zyycc.zyyserver.A", false, bkLoader).getMethod("main", String[].class).invoke(null, (Object) args);
-
+//        BridgeHolder.INSTANCE.setClassLoader(myLoader);
 
         //kissAllFromJar(forgeJar, myLoader, forge());
-
 
         //definePackageFromJarManifest(myLoader, forgeJar);
 
 
-        //de
-
         createDefaultConfig();
 
-        Class<?> sysLauncherClass = Class.forName("cpw.mods.modlauncher.Launcher");
+        redefineListener();
+
+        if(canStart){
+            while (!PreScanBridge.ready) {
+                try {
+                    Thread.sleep(100);
+                }catch (InterruptedException e){
+                    e.printStackTrace();
+                }
+            }
+        }
 
 
-        Method runLauncher = sysLauncherClass.getMethod("main", String[].class);
-
-
-
-        runLauncher.invoke(null, (Object) collectArgs(args));
-
+        Launcher.main(collectArgs(args));
 
     }
 
-    private static void createDefaultConfig() {
-        Path path = Paths.get(VersionInfo.FORGE_LOCAL_PATH, "config");
+    public static void redefineListener() {
+        System.out.println("listener start");
+        new Thread(() -> {
+            Path file = Paths.get("agent", "agent_command.txt");
+            while (true) {
+                if (Files.exists(file)) {
+                    try {
+                        List<String> lines = Files.readAllLines(file);
+                        List<String> updated = new ArrayList<>();
+                        for (String line : lines) {
+                            if (line.trim().isEmpty() || line.trim().startsWith("#")) {
+                                updated.add(line);
+                                continue;
+                            }
+                            if (line.startsWith("redefine ")) {
+                                String cls = line.substring(9).trim();
 
-        ResourceUtils.createFileIfAbsent(path.resolve("fml.toml"),
+                                Path path = Paths.get("agent", cls.replace('.', '/') + ".class");
+
+                                if (!path.toFile().exists()) {
+                                    System.err.println("Class " + cls + " not found");
+                                    updated.add("# " + line + "    [FAILED: not found]");
+                                } else {
+                                    if(redefine(cls, path)){
+                                        updated.add("# " + line + "    [OK]");
+                                    }else {
+                                        updated.add("# " + line + "    [FAILED]");
+                                    }
+                                }
+                            }
+                        }
+                        Files.write(file, updated, StandardOpenOption.TRUNCATE_EXISTING);
+                    } catch (Exception ignored) {
+                    }
+                }
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }).start();
+
+    }
+
+    public static boolean redefine(String className, Path bytesPath) {
+        try {
+            Instrumentation inst = InstrumentationBridge.getInst();
+
+            for (Class<?> c : inst.getAllLoadedClasses()) {
+                if (c.getName().equals(className.replace('/', '.'))) {
+                    byte[] newBytes = Files.readAllBytes(bytesPath);
+//                    inst.retransformClasses(c);
+                    inst.redefineClasses(new ClassDefinition(c, newBytes));
+                    System.out.println("[Agent] redefined " + className);
+                    return true;
+                }
+            }
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return false;
+        }
+        return false;
+    }
+
+    private static void createDefaultConfig() {
+        Path path = Paths.get(VersionInfo.WORKING_DIR, "config");
+
+        ServerUtil.createFileIfAbsent(path.resolve("fml.toml"),
                 "# Enable forge global version checking\n" +
                         "versionCheck = true\n" +
                         "# does the splashscreen run\n" +
@@ -172,7 +196,7 @@ public class MainForge {
                         "maxThreads = -1\n" +
                         "\n");
 
-        ResourceUtils.createFileIfAbsent(path.resolve("forge-common.toml"),
+        ServerUtil.createFileIfAbsent(path.resolve("forge-common.toml"),
                 "\n" +
                         "#General configuration settings\n" +
                         "[general]\n" +
@@ -184,17 +208,79 @@ public class MainForge {
 
     }
 
-
-
-    public static void definePackageFromJarManifest(ClassLoader loader, Path forgeJar) {
-        try {
-            Attributes attrs = ClassPathUtils.readManifestAttributes(forgeJar);
-            definePackageManually(loader, attrs);
-        } catch (Exception e) {
-            System.err.println("[-] definePackage 失败: " + e);
-            e.printStackTrace();
+    public static Path patchForgeManifest(Path forgeJar) throws Exception {
+        // 1. 读取 MANIFEST
+        Manifest manifest;
+        try (JarFile jarFile = new JarFile(forgeJar.toFile())) {
+            manifest = jarFile.getManifest();
         }
+
+        if (manifest == null) {
+            throw new IllegalStateException("没有找到 MANIFEST.MF！");
+        }
+
+        // 2. 创建临时 JAR 文件
+        Path tempJar = Paths.get(VersionInfo.WORKING_DIR, "nashimanifest.jar");
+        //  tempJar.toFile().deleteOnExit(); // 程序结束后自动清除
+        Files.createDirectories(tempJar.getParent());
+
+        try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(tempJar), manifest)) {
+            // 写入 minecraftmod.toml
+            jos.putNextEntry(new JarEntry("minecraftmod.toml"));
+            String str = "modLoader=\"minecraft\"\n" +
+                    "loaderVersion=\"1\"\n" +
+                    "license=\"Mojang Studios, All Rights Reserved\"\n" +
+                    "[[mods]]\n" +
+                    "    modId=\"minecraft\"\n" +
+                    "    version=\"${global.mcVersion}\"\n" +
+                    "    displayName=\"Minecraft\"\n" +
+                    "    logoFile=\"mcplogo.png\"\n" +
+                    "    credits=\"Mojang, deobfuscated by MCP\"\n" +
+                    "    authors=\"MCP: Searge,ProfMobius,IngisKahn,Fesh0r,ZeuX,R4wk,LexManos,Bspkrs\"\n" +
+                    "    description='''\n" +
+                    "    Minecraft, decompiled and deobfuscated with MCP technology\n" +
+                    "    '''";
+
+
+            jos.write(str.getBytes(StandardCharsets.UTF_8));
+            jos.closeEntry();
+
+
+            jos.putNextEntry(new JarEntry("META-INF/mods.toml"));
+
+            String modsToml = "modLoader=\"javafml\"\n" +
+                    "loaderVersion=\"[24,]\"\n" +
+                    "issueTrackerURL=\"http://www.minecraftforge.net/\"\n" +
+                    "logoFile=\"forge_logo.png\"\n" +
+                    "license=\"LGPL v2.1\"\n" +
+                    "\n" +
+                    "[[mods]]\n" +
+                    "modId=\"forge\"\n" +
+                    "# We use the global forge version\n" +
+                    "version=\"${global.forgeVersion}\"\n" +
+                    "updateJSONURL=\"https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json\"\n" +
+                    "displayName=\"Forge\"\n" +
+                    "credits=\"Anyone who has contributed on Github and supports our development\"\n" +
+                    "authors=\"LexManos,cpw\"\n" +
+                    "description='''\n" +
+                    "    Forge, a broad compatibility API.\n" +
+                    "    '''\n";
+
+
+            jos.write(modsToml.getBytes(StandardCharsets.UTF_8));
+
+            jos.closeEntry();
+
+            jos.putNextEntry(new JarEntry("META-INF/mods.toml.sha1"));
+            jos.write("".getBytes(StandardCharsets.UTF_8));
+            jos.write("".getBytes(StandardCharsets.UTF_8));
+            jos.closeEntry();
+
+        }
+
+        return tempJar;
     }
+
 
     private static void definePackageManually(ClassLoader loader, Attributes attrs) throws Exception {
         Method definePackage = ClassLoader.class.getDeclaredMethod("definePackage",
@@ -222,25 +308,24 @@ public class MainForge {
     }
 
 
-
-    public static void registerLaunchHandlerToSystem(Path forgeJar) throws Exception {
-        String className = "net.minecraftforge.fml.loading.FMLServerLaunchProvider";
-
-        ClassLoader sysLoader = ClassLoader.getSystemClassLoader();
-        Class<?> impl;
-
-        try {
-            // ✅ 优先尝试加载，避免重复 define
-            impl = Class.forName(className, false, sysLoader);
-            System.out.println("⚠ 已加载类，跳过 define: " + className);
-        } catch (ClassNotFoundException e) {
-            byte[] bytes = readClassBytes(forgeJar, className);
-            impl = defineClassToSystem(className, bytes);
-            System.out.println("✅ define 到系统类加载器: " + className);
-        }
-
-        registerSPIForcefully(ILaunchHandlerService.class, impl);
-    }
+//    public static void registerLaunchHandlerToSystem(Path forgeJar) throws Exception {
+//        String className = "net.minecraftforge.fml.loading.FMLServerLaunchProvider";
+//
+//        ClassLoader sysLoader = ClassLoader.getSystemClassLoader();
+//        Class<?> impl;
+//
+//        try {
+//            // ✅ 优先尝试加载，避免重复 define
+//            impl = Class.forName(className, false, sysLoader);
+//            System.out.println("⚠ 已加载类，跳过 define: " + className);
+//        } catch (ClassNotFoundException e) {
+//            byte[] bytes = readClassBytes(forgeJar, className);
+//            impl = defineClassToSystem(className, bytes);
+//            System.out.println("✅ define 到系统类加载器: " + className);
+//        }
+//
+//        registerSPIForcefully(ILaunchHandlerService.class, impl);
+//    }
 
     public static <T> void registerSPIForcefully(Class<T> spi, Class<?> impl) throws Exception {
         Field providersField = ServiceLoader.class.getDeclaredField("providers");
@@ -284,12 +369,12 @@ public class MainForge {
         }
     }
 
-    public static Class<?> defineClassToSystem(String className, byte[] bytes) {
-        return UnsafeHelper.unsafe.defineClass(
-                className, bytes, 0, bytes.length,
-                ClassLoader.getSystemClassLoader(), null
-        );
-    }
+//    public static Class<?> defineClassToSystem(String className, byte[] bytes) {
+//        return UnsafeHelper.unsafe.defineClass(
+//                className, bytes, 0, bytes.length,
+//                ClassLoader.getSystemClassLoader(), null
+//        );
+//    }
 
     @SuppressWarnings("unchecked")
     public static <T> ServiceLoader<T> manuallyRegisterSPI(String spiInterfaceName, List<String> implClassNames, ClassLoader loader) {
@@ -322,100 +407,98 @@ public class MainForge {
     }
 
 
-
-    public static void defineClass(Path jarPath, ClassLoader loader, String importantClass, ProtectionDomain pd) throws IOException {
-        try (JarFile jar = new JarFile(jarPath.toFile())) {
-            defineClass(jar, loader, importantClass, pd);
-        }
-    }
-
-    public static void defineClass(JarFile jar, ClassLoader loader, String importantClass, ProtectionDomain pd) throws IOException {
-        JarEntry entry = jar.getJarEntry(importantClass.replace('.', '/') + ".class");
-        if (entry != null) {
-            try (InputStream is = jar.getInputStream(entry)) {
-                byte[] bytes = readAllBytes(is);
-                defineClassSafely(importantClass, bytes, loader, pd, false);
-            }
-        }
-    }
+//    public static void defineClass(Path jarPath, ClassLoader loader, String importantClass, ProtectionDomain pd) throws IOException {
+//        try (JarFile jar = new JarFile(jarPath.toFile())) {
+//            defineClass(jar, loader, importantClass, pd);
+//        }
+//    }
+//
+//    public static void defineClass(JarFile jar, ClassLoader loader, String importantClass, ProtectionDomain pd) throws IOException {
+//        JarEntry entry = jar.getJarEntry(importantClass.replace('.', '/') + ".class");
+//        if (entry != null) {
+//            try (InputStream is = jar.getInputStream(entry)) {
+//                byte[] bytes = readAllBytes(is);
+//                defineClassSafely(importantClass, bytes, loader, pd, false);
+//            }
+//        }
+//    }
 
     /**
      * Gently KISS every class in the JAR into the custom loader.
      * No violence, no delegation. Only passion.
      */
-    public static void kissAllFromJar(Path jarPath, ClassLoader loader, List<String> forceDefineFirst) throws Exception {
-
-        ProtectionDomain pd = new ProtectionDomain(new CodeSource(jarPath.toUri().toURL(), (Certificate[]) null), null);
-
-
-        try (JarFile jar = new JarFile(jarPath.toFile())) {
-            // 🔁 提前 define 重要类
-            for (String importantClass : forceDefineFirst) {
-                JarEntry entry = jar.getJarEntry(importantClass.replace('.', '/') + ".class");
-                if (entry != null) {
-                    try (InputStream is = jar.getInputStream(entry)) {
-                        byte[] bytes = readAllBytes(is);
-                        defineClassSafely(importantClass, bytes, loader, pd, false);
-                    }
-                }
-            }
-            Enumeration<JarEntry> entries = jar.entries();
-            while (entries.hasMoreElements()) {
-                JarEntry entry = entries.nextElement();
-                if (entry.getName().endsWith(".class")) {
-
-                    String className = entry.getName().replace('/', '.').replaceAll("\\.class$", "");
-                    // 🔒 如果类已经被加载，跳过
-                    try (InputStream is = jar.getInputStream(entry)) {
-                        byte[] bytes = readAllBytes(is);
-                        defineClassSafely(className, bytes, loader, pd, false);
-                    } catch (IOException e) {
-                        System.out.println("无法读取 " + entry.getName());
-                    }
-                }
-            }
-        }
-    }
-
-
-    public static Class<?> defineClassSafely(String className, byte[] bytecode, ClassLoader loader, ProtectionDomain pd, boolean verbose) {
-
-        Objects.requireNonNull(className, "Class name cannot be null");
-        Objects.requireNonNull(bytecode, "Bytecode cannot be null");
-        Objects.requireNonNull(loader, "ClassLoader cannot be null");
-        if (isLoadedByAny(className, loader)) {
-            if (verbose) {
-                System.out.println("⚠️ Class already loaded by system loader: " + className);
-            }
-            return null;
-        }
-        try {
-            // 尝试通过 loader 判断是否已经加载
-            try {
-                Class<?> already = Class.forName(className, false, loader);
-                if (verbose) {
-                    System.out.println("[defineClassSafely] Already loaded: " + className);
-                }
-                return already;
-            } catch (ClassNotFoundException ignored) {
-
-            }
-
-            // defineClass 调用
-            Class<?> defined = UnsafeHelper.unsafe.defineClass(
-                    className, bytecode, 0, bytecode.length, loader, pd);
-            if (verbose) {
-                System.out.println("[defineClassSafely] Defined: " + className);
-            }
-            return defined;
-        } catch (LinkageError e) {
-            System.err.println("[FAIL] Linkage/Verify error: " + className + " - " + e.getMessage());
-        }
+//    public static void kissAllFromJar(Path jarPath, ClassLoader loader, List<String> forceDefineFirst) throws Exception {
+//
+//        ProtectionDomain pd = new ProtectionDomain(new CodeSource(jarPath.toUri().toURL(), (Certificate[]) null), null);
+//
+//
+//        try (JarFile jar = new JarFile(jarPath.toFile())) {
+//            // 🔁 提前 define 重要类
+//            for (String importantClass : forceDefineFirst) {
+//                JarEntry entry = jar.getJarEntry(importantClass.replace('.', '/') + ".class");
+//                if (entry != null) {
+//                    try (InputStream is = jar.getInputStream(entry)) {
+//                        byte[] bytes = readAllBytes(is);
+//                        defineClassSafely(importantClass, bytes, loader, pd, false);
+//                    }
+//                }
+//            }
+//            Enumeration<JarEntry> entries = jar.entries();
+//            while (entries.hasMoreElements()) {
+//                JarEntry entry = entries.nextElement();
+//                if (entry.getName().endsWith(".class")) {
+//
+//                    String className = entry.getName().replace('/', '.').replaceAll("\\.class$", "");
+//                    // 🔒 如果类已经被加载，跳过
+//                    try (InputStream is = jar.getInputStream(entry)) {
+//                        byte[] bytes = readAllBytes(is);
+//                        defineClassSafely(className, bytes, loader, pd, false);
+//                    } catch (IOException e) {
+//                        System.out.println("无法读取 " + entry.getName());
+//                    }
+//                }
+//            }
+//        }
+//    }
 
 
-        return null;
-    }
-
+//    public static Class<?> defineClassSafely(String className, byte[] bytecode, ClassLoader loader, ProtectionDomain pd, boolean verbose) {
+//
+//        Objects.requireNonNull(className, "Class name cannot be null");
+//        Objects.requireNonNull(bytecode, "Bytecode cannot be null");
+//        Objects.requireNonNull(loader, "ClassLoader cannot be null");
+//        if (isLoadedByAny(className, loader)) {
+//            if (verbose) {
+//                System.out.println("⚠️ Class already loaded by system loader: " + className);
+//            }
+//            return null;
+//        }
+//        try {
+//            // 尝试通过 loader 判断是否已经加载
+//            try {
+//                Class<?> already = Class.forName(className, false, loader);
+//                if (verbose) {
+//                    System.out.println("[defineClassSafely] Already loaded: " + className);
+//                }
+//                return already;
+//            } catch (ClassNotFoundException ignored) {
+//
+//            }
+//
+//
+//            Class<?> defined = UnsafeHelper.unsafe.defineClass(
+//                    className, bytecode, 0, bytecode.length, loader, pd);
+//            if (verbose) {
+//                System.out.println("[defineClassSafely] Defined: " + className);
+//            }
+//            return defined;
+//        } catch (LinkageError e) {
+//            System.err.println("[FAIL] Linkage/Verify error: " + className + " - " + e.getMessage());
+//        }
+//
+//
+//        return null;
+//    }
     public static boolean isLoadedByAny(String className, ClassLoader loader) {
         try {
             Class.forName(className, false, loader);
@@ -436,27 +519,6 @@ public class MainForge {
 
 
     private static final Set<String> definedClasses = ConcurrentHashMap.newKeySet();
-
-    public static Class<?> defineClassFromJar(
-            URLClassLoader loader, Path jarPath, String className, ProtectionDomain pd
-    ) throws Exception {
-        if (definedClasses.contains(className)) {
-            return loader.loadClass(className); // 已定义则直接返回
-        }
-
-        try (JarFile jar = new JarFile(jarPath.toFile())) {
-            JarEntry entry = jar.getJarEntry(className.replace('.', '/') + ".class");
-            if (entry == null) throw new RuntimeException("❌ 找不到类: " + className + " in " + jarPath);
-
-            try (InputStream is = jar.getInputStream(entry)) {
-                byte[] bytes = readAllBytes(is);
-                // 👉 此处你可以插入 ASM patch logic（可扩展）
-                Class<?> clazz = UnsafeHelper.unsafe.defineClass(null, bytes, 0, bytes.length, loader, pd);
-                definedClasses.add(className);
-                return clazz;
-            }
-        }
-    }
 
 
     private static byte[] loadJarBytes(Path jarFile, String className) {

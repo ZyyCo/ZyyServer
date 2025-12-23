@@ -1,31 +1,39 @@
 package cc.zyycc.agent.inject.visitCode;
 
-import cc.zyycc.agent.enhancer.MyMethodVisitor;
-import cc.zyycc.agent.inject.IInjectMethod;
+import cc.zyycc.agent.enhancer.ClassEnhancer;
+import cc.zyycc.agent.enhancer.SimpleVisitMethodEnhancer;
+import cc.zyycc.agent.inject.IInjectMode;
 import org.objectweb.asm.MethodVisitor;
 
 import java.util.function.Consumer;
 
-public interface IVisitCode extends IInjectMethod {
-    default Consumer<MethodVisitor> code(){
+public abstract class InjectVisitCode extends IInjectMode {
+
+    public Consumer<MethodVisitor> visitCode() {
         return MethodVisitor::visitCode;
     }
 
 
-    default Consumer<MethodVisitor> visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface, MyMethodVisitor context) {
+    public Consumer<MethodVisitor> visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface, MyMethodVisitor context) {
         return mv -> mv.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
     }
 
 
-    default Consumer<MethodVisitor> visitFieldInsn(int opcode, String owner, String name, String descriptor,MyMethodVisitor context){
+    public Consumer<MethodVisitor> visitFieldInsn(int opcode, String owner, String name, String descriptor, MyMethodVisitor context) {
         return mv -> mv.visitFieldInsn(opcode, owner, name, descriptor);
     }
 
-    default Consumer<MethodVisitor> visitTypeInsn(int opcode, String type) {
+    public Consumer<MethodVisitor> visitTypeInsn(int opcode, final String type) {
         return mv -> mv.visitTypeInsn(opcode, type);
     }
 
-    default Consumer<MethodVisitor> visitInsn(int opcode) {
+    public Consumer<MethodVisitor> visitInsn(int opcode) {
         return mv -> mv.visitInsn(opcode);
     }
+
+    public Consumer<MethodVisitor> visitVarInsn(final int opcode, final int varIndex) {
+        return mv -> mv.visitVarInsn(opcode, varIndex);
+    }
+
+
 }

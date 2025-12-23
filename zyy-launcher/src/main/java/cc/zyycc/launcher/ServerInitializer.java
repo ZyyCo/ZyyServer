@@ -1,23 +1,31 @@
 package cc.zyycc.launcher;
 
+import cc.zyycc.common.util.FileManager;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Properties;
 
 public class ServerInitializer {
-    public static void prepareServerDirectory(File serverDir) throws IOException {
+    public static boolean prepareServerDirectory(File serverDir) throws IOException {
         if (!serverDir.exists()) {
             serverDir.mkdirs();
         }
-        File eula = new File(serverDir, "eula.txt");
-        if (!checkEulaAccepted(eula)) {
-            confirmEulaAndSave(eula);
-        }
+
         File serverProperties = new File(serverDir, "server.properties");
         if (!serverProperties.exists()) {
             generateServerProperties(serverProperties);
         }
+        File eula = new File(serverDir, "eula.txt");
+//        if (!checkEulaAccepted(eula)) {
+//            //common
+//            //  FileManager.extractJar("zyy-common.jar", "kissCommon.jar");
+//            //confirmEulaAndSave(eula);
+//
+//        }
+
+        return checkEulaAccepted(eula);
     }
 
     private static void generateServerProperties(File targetFile) throws IOException {
@@ -36,24 +44,31 @@ public class ServerInitializer {
 
     private static void confirmEulaAndSave(File eula) throws IOException {
 
-        System.out.println("⚠️ 你必须同意 Minecraft 的最终用户许可协议 (EULA) 才能启动服务器。");
-        System.out.println("📄 请访问并阅读: https://aka.ms/MinecraftEULA");
-        System.out.print("✅ 是否同意 EULA？输入 'yes' 同意: ");
+//        System.out.println("⚠️ 你必须同意 Minecraft 的最终用户许可协议 (EULA) 才能启动服务器。");
+//        System.out.println("📄 请访问并阅读: https://aka.ms/MinecraftEULA");
+       // System.out.print("✅ 是否同意 EULA？输入 'yes' 同意: ");
 
+//        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+//        String input = reader.readLine();
+//
+//        try (PrintWriter out = new PrintWriter(new FileWriter(eula))) {
+//            out.println("# By changing the setting below to TRUE you are indicating your agreement to our EULA.");
+//            out.println("# https://aka.ms/MinecraftEULA");
+//            out.println("eula=false");
+//        }
 
-        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-        String input = reader.readLine();
-        if ("yes".equalsIgnoreCase(input.trim())) {
-            try (PrintWriter out = new PrintWriter(new FileWriter(eula))) {
-                out.println("# By changing the setting below to TRUE you are indicating your agreement to our EULA.");
-                out.println("# https://aka.ms/MinecraftEULA");
-                out.println("eula=true");
-            }
-            System.out.println("✅ EULA 同意记录已保存，继续启动服务端...");
-        } else {
-            System.err.println("❌ 你没有同意 EULA，服务端将不会启动。");
-            System.exit(0);
-        }
+//
+//        if ("yes".equalsIgnoreCase(input.trim())) {
+//            try (PrintWriter out = new PrintWriter(new FileWriter(eula))) {
+//                out.println("# By changing the setting below to TRUE you are indicating your agreement to our EULA.");
+//                out.println("# https://aka.ms/MinecraftEULA");
+//                out.println("eula=true");
+//            }
+//            System.out.println("✅ EULA 同意记录已保存，继续启动服务端...");
+//        } else {
+//            System.err.println("❌ 你没有同意 EULA，服务端将不会启动。");
+//            System.exit(0);
+//        }
     }
 
     private static boolean checkEulaAccepted(File eulaFile) {

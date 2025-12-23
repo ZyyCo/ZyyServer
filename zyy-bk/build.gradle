@@ -1,0 +1,140 @@
+buildscript {
+    repositories {
+        maven { url = 'https://files.minecraftforge.net/maven' }
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+        mavenCentral()
+
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:5.1.+'
+        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
+    }
+}
+plugins {
+    id 'java'
+}
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+group = 'cc.zyycc'
+version = '1.0-SNAPSHOT'
+
+apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'org.spongepowered.mixin'
+apply plugin: cc.zyycc.plugin.ZyyPlugin
+
+
+repositories {
+    maven { url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
+}
+//
+minecraft {
+    mappings channel: 'snapshot', version: '20210309-1.16.5'
+    accessTransformers = ["src/main/resources/META-INF/accesstransformer.cfg"]
+}
+
+
+mixin {
+    add sourceSets.main, "mixins.${server_id}.refmap.json"
+    config "mixins.${server_id}.json"
+    mixin.disableTargetValidator = true
+}
+
+def remapSpigot = file("$buildDir/cache/spigot-1165.jar")
+zyyExtension {
+    minecraftVersion = '1.16.5'
+    bukkitVersion = 'v1_16_R3'
+    remapFile = remapSpigot
+}
+
+
+def bkSrg = file("$projectDir/build/cache/remap.srg")
+
+ext {
+    remapSrg = file("$projectDir/build/cache/remapSrg.srg")
+}
+
+
+tasks.register("renameSpigot") {
+    if(!remapSpigot.exists()){
+        dependsOn(project.tasks.getByName("setupSpigot"))
+        doLast {
+            tasks.create("renameSpigotJar", net.minecraftforge.gradle.userdev.tasks.RenameJarInPlace, {
+                input.set(remapSpigot)
+                mappings.set(bkSrg)
+                apply()
+            })
+        }
+    }
+}
+
+
+def trimmedJar = file("$buildDir/libs/spigot-trimmed-1165.jar")
+tasks.register("trimSpigotJar") {
+    dependsOn(project.tasks.getByName("renameSpigot"))
+    doLast {
+        ant.zip(destfile: trimmedJar) {
+            zipfileset(src: remapSpigot) {
+                include(name: "org/bukkit/**")
+                include(name: "org/spigotmc/**")
+                include(name: "org/yaml/snakeyaml/**")
+                include(name: "org/jetbrains/**")
+                include(name: "configurations/**")
+                include(name: "net/md_5/**")
+                include(name: "org/fusesource/**")//org.fusesource.jansi:jansi
+
+                include(name: "META-INF/native/**")//org.fusesource.jansi:jansi
+
+                exclude(name: "org/bukkit/craftbukkit/libs/it/**")
+                exclude(name: "org/bukkit/craftbukkit/libs/org/apache/**")
+
+            }
+        }
+    }
+}
+
+
+configurations {
+    implementation.extendsFrom(runtimeLibs)
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraftVersion}-${forgeVersion}"
+    implementation project(':zyy-common')
+    runtimeLibs files(trimmedJar)
+
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    runtimeLibs("org.spigotmc:spigot-api:${minecraftVersion}-R0.1-SNAPSHOT@jar")
+
+
+}
+
+jar {
+    manifest {
+        attributes(
+                "Implementation-Title": "Zyy",
+                "Implementation-Version": project.version,
+                "Implementation-Vendor": "Zyy"
+        )
+    }
+
+    from {
+        configurations.runtimeLibs.collect { it.isDirectory() ? it : zipTree(it)}
+
+
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+}
+
+
+tasks.compileJava {
+    dependsOn("trimSpigotJar")
+}
+
+
+test {
+    useJUnitPlatform()
+}

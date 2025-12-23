@@ -2,12 +2,12 @@ package cc.zyycc.remap;
 
 import java.lang.reflect.Field;
 
-public class MappingEntry extends BaseEntry{
+public class BaseEntry {
     private final String name2;
     protected String className;
 
-    public static MappingEntry empty() {
-        return new MappingEntry(null, null);
+    public static BaseEntry empty() {
+        return new BaseEntry(null, null);
     }
 
 
@@ -24,15 +24,18 @@ public class MappingEntry extends BaseEntry{
     }
 
     public String generate() {
+        if (name2 == null) {
+            return className;
+        }
         return className + " " + name2;
     }
 
-    public MappingEntry(String className) {
+    public BaseEntry(String className) {
         this.className = className.replace(".", "/");
-        this.name2 = "";
+        this.name2 = null;
     }
 
-    public MappingEntry(String className, String name2) {
+    public BaseEntry(String className, String name2) {
         this.className = className.replace(".", "/");
         this.name2 = name2;
     }
@@ -41,7 +44,7 @@ public class MappingEntry extends BaseEntry{
         return name2;
     }
 
-    public MappingEntry recreate(String value) {
+    public BaseEntry recreate(String value) {
         int s1 = value.indexOf(" ");
         int s2 = value.indexOf(" ", s1);
         if (s1 == -1) {
@@ -54,7 +57,7 @@ public class MappingEntry extends BaseEntry{
         } else {
             right = value.substring(s2 + 1);
         }
-        return new MappingEntry(left, right);
+        return new BaseEntry(left, right);
     }
 
     public Field anewExecuteField(ClassLoader loader) {

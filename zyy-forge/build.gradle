@@ -1,26 +1,36 @@
-import groovy.json.JsonSlurper
-import java.util.zip.ZipFile
 buildscript {
     repositories {
-        mavenCentral()
         maven { url = 'https://files.minecraftforge.net/maven' }
+        mavenCentral()
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+
         dependencies {
             // 引入 ForgeGradle 插件
             classpath 'net.minecraftforge.gradle:ForgeGradle:5.1.+'
+            //classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
         }
     }
 }
 plugins {
     id 'java'
 }
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
 apply plugin: 'net.minecraftforge.gradle'
+//apply plugin: 'org.spongepowered.mixin'
 
 group = 'cc.zyycc'
 version = '1.0.0'
 
-java {
-    toolchain.languageVersion = JavaLanguageVersion.of(8)
+
+repositories {
+    maven { url = 'https://maven.minecraftforge.net/' }
+    maven { url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
+    mavenCentral()
 }
+
 
 minecraft {
     mappings channel: 'snapshot', version: '20210309-1.16.5'
@@ -31,20 +41,35 @@ minecraft {
     }
 }
 
+//mixin {
+//    add sourceSets.main, "mixins.${server_id}.refmap.json"
+//    config "mixins.${server_id}.json"
+//}
+
+
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraftVersion}-${forgeVersion}"
     implementation project(':zyy-core')
     implementation project(':zyy-common')
-    implementation project(':zyy-installer')
-    implementation 'com.google.code.gson:gson:2.8.9'
-    implementation files("${rootDir}/libs/unsafe.jar")
 
+
+//    compileOnly "org.spigotmc:spigot-api:${minecraftVersion}-R0.1-SNAPSHOT@jar"
+    //runtimeLibs "org.spigotmc:spigot-api:${minecraftVersion}-R0.1-SNAPSHOT@jar"
     compileOnly 'cpw.mods:modlauncher:8.1.3'
     compileOnly 'net.minecraftforge:forgespi:3.2.0'
+    //compileOnly files(project(":zyy-bk").spigotResultJar)
+   // implementation 'org.jetbrains:annotations:23.0.0'
+//    runtimeLibs 'org.jetbrains:annotations:23.0.0'
+//    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 
 }
+//
+//task copyRuntimeLibs(type: Copy) {
+//    into file("$buildDir/libs")
+//    from configurations.runtimeLibs
+//}
 
-ext{
+ext {
     // Forge 安装器的远程下载地址（动态构建）
     forgeInstallerUrl = "https://maven.minecraftforge.net/net/minecraftforge/forge/${forgeFullVersion}/forge-${forgeFullVersion}-installer.jar"
     // 下载后本地保存的路径。这里是打包之前的路径
@@ -53,12 +78,10 @@ ext{
 }
 
 jar {
-    from {
-        zipTree(file("${rootDir}/libs/unsafe.jar"))
-    }
-    from {
-        project(':zyy-installer').sourceSets.main.output
-    }
+//    from {
+//        project(':zyy-installer').sourceSets.main.output
+//    }
+
 
     manifest {
         attributes(
@@ -66,120 +89,9 @@ jar {
         )
     }
 }
-
-
-
-def generatedSrcDir = file("$buildDir/generated-src")
-
-
-
-
-// 🔽 自动下载 Forge 安装器（如果本地不存在）
-tasks.register('downloadInstaller') {
-    outputs.file installerFile
-    doLast {
-        if (!installerFile.exists()) {
-            println "⏬ 下载 Forge 安装器..."
-            new URL(forgeInstallerUrl as String).withInputStream { i ->
-                installerFile.withOutputStream { it << i }
-            }
-            println "✅ 下载完成: ${installerFile}"
-        }
-    }
+tasks.compileJava {
+//    dependsOn(copyRuntimeLibs)
 }
-// 📦 确保打包 JAR 前已下载好安装器（依赖执行顺序）
-jar.dependsOn downloadInstaller
 
-tasks.register('generateVersionInfo') {
-    dependsOn 'downloadInstaller'
 
-    doLast {
-        println "📦 开始生成 VersionInfo.java..."
-        println "🔍 installerFile 路径: ${installerFile}"
-        println "🔍 installerFile 是否存在: ${installerFile.exists()}"
 
-        def pkgDir = new File(generatedSrcDir, "cc/zyycc/common")
-        pkgDir.mkdirs()
-        def versionFile = new File(pkgDir, "VersionInfo.java")
-
-        def mcpVersion = "UNKNOWN"
-        def zipFile = new ZipFile(installerFile)
-        def versionEntry = zipFile.getEntry("version.json")
-        //install.json
-        def installProfileEntry = zipFile.getEntry("install_profile.json")
-        if (versionEntry != null) {
-            def jsonText = zipFile.getInputStream(versionEntry).getText("UTF-8")
-            // println "📄 version.json 内容如下：\n" + jsonText
-            def json = new JsonSlurper().parseText(jsonText)
-            def gameArgs = json?.arguments?.game
-            if (gameArgs instanceof List) {
-                def idx = gameArgs.indexOf("--fml.mcpVersion")
-                if (idx != -1 && idx + 1 < gameArgs.size()) {
-                    mcpVersion = gameArgs[idx + 1]
-                    println "成功提取 MCP 版本: ${mcpVersion}"
-                } else {
-                    println "未找到 --fml.mcpVersion 参数"
-                }
-            } else {
-                println " arguments.game 不是数组"
-            }
-        } else {
-            println " version.json 文件未找到"
-        }
-        //install
-        if (installProfileEntry != null) {
-            def profileText = zipFile.getInputStream(installProfileEntry).getText("UTF-8")
-            def installJson = new JsonSlurper().parseText(profileText)
-
-            def libs = installJson.libraries
-            def repoDefault = "https://maven.minecraftforge.net/"
-
-            def forgeDeps = []
-            libs.each { lib ->
-                def name = lib.name
-                def repo = lib.containsKey("url") ? lib.url : repoDefault
-                def parts = name.split(":")
-                if (parts.length == 3) {
-                    def (groupId, artifactId, version) = parts
-                    def groupPath = groupId.replace('.', '/')
-                    def jarName = "${artifactId}-${version}.jar"
-                    def jarPath = "${groupPath}/${artifactId}/${version}/${jarName}"
-                    def fullUrl = "${repo}${jarPath}"
-                    forgeDeps << fullUrl
-                }
-            }
-
-            versionFile.text = """
-            package cc.zyycc.common;
-
-            public class VersionInfo {
-                public static final String MINECRAFT_VERSION = "${minecraftVersion}";
-                public static final String FORGE_VERSION = "${forgeVersion}";
-                public static final String VERSION_NAME = "${versionName}";
-                public static final String FORGE_FULL_VERSION = "${forgeFullVersion}";
-                public static final String INTERNALPATH = "${server_id}";
-                public static final String INTERNALPATH_INSTALL_DIR = "${server_id}/forge-${forgeFullVersion}-installer.jar";
-                public static final String WORKING_DIR = "${workingDir}";
-                public static final String INSTALLER_FILE = "${workingDir}/forge-${forgeFullVersion}-installer.jar";
-                public static final String FORGE_LOCAL_PATH = ".";
-                public static final String MCP_VERSION = "${mcpVersion}";
-                public static final String[] LAUNCHER_ARGS = new String[] {
-                 "--gameDir", ".", 
-                 "--launchTarget", "fmlserver",
-                 "--fml.mcVersion", "${minecraftVersion}",
-                 "--fml.forgeVersion", "${forgeVersion}",
-                 "--fml.mcpVersion", "${mcpVersion}",
-                 "--fml.forgeGroup", "net.minecraftforge",
-                };
-                public static final String[] FORGE_DEPENDENCIES = new String[] {
-                    ${forgeDeps.collect { "\"${it}\"" }.join(",\n                    ")}
-                };                
-            }
-        """
-            println "✅ 生成完成: VersionInfo.java"
-        }
-    }
-}
-//依赖
-    compileJava.dependsOn(generateVersionInfo)
-    sourceSets.main.java.srcDirs += generatedSrcDir

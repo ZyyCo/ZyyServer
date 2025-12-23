@@ -1,4 +1,4 @@
-package cc.zyycc.common.bridge.loader;
+package cc.zyycc.common.loader;
 
 import cc.zyycc.common.bridge.server.ICraftServer;
 import cc.zyycc.common.bridge.server.IServerProvider;

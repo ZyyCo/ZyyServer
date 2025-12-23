@@ -1,4 +1,4 @@
-package cc.zyycc.forge;
+package cc.zyycc.common.util;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -86,4 +86,6 @@ public class ServerUtil {
             e.printStackTrace();
         }
     }
+
+
 }

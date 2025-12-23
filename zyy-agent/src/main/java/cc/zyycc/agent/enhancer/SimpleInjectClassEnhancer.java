@@ -1,42 +1,29 @@
-package cc.zyycc.agent.inject.method;
+package cc.zyycc.agent.enhancer;
 
 
-import cc.zyycc.agent.enhancer.*;
-import cc.zyycc.agent.inject.IInjectVisitMethod;
+import cc.zyycc.agent.inject.InjectVisitMethod;
+import cc.zyycc.agent.inject.method.InjectMethod;
 import cc.zyycc.agent.inject.visitCode.InjectMethodVisitor;
-import cc.zyycc.agent.transformer.ClassEnhancer;
 import cc.zyycc.agent.transformer.TransformerProvider;
 import org.objectweb.asm.*;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
-public abstract class SimpleInjectClassEnhancer implements ClassEnhancer {
-    protected InsertBefore insertBefore;
+public class SimpleInjectClassEnhancer extends BaseEnhancer<InjectVisitMethod> {
 
-    protected List<InjectVisitMethod> allInjectVisitMethods = new ArrayList<>();
-
-
-    public SimpleInjectClassEnhancer(InsertBefore insertBefore) {
-        if (insertBefore == null) {
-            this.insertBefore = defaultInsertBefore();
-        } else {
-            this.insertBefore = insertBefore;
-        }
-
-//        for (TargetMethod targetMethod : targetMethods) {
-//            allInjectVisitMethods.addAll(Arrays.asList(targetMethod.injectMethodEnhancer));
-//        }
-    }
-
+    protected final Map<String, String> allInjectVisitMethods = new ConcurrentHashMap<>();
+    protected final Map<TargetMethod, List<InjectVisitMethod>> injectMethodMap = new ConcurrentHashMap<>();
+    boolean needFrame = false;
 
     @Override
     public ClassVisitor createVisitor(ClassWriter cw, TransformerProvider transformerProvider, String pluginName, String className, ClassLoader classLoader) {
         return new ClassVisitor(Opcodes.ASM9, cw) {
             @Override
             public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
-                for (InjectVisitMethod injectVisitMethod : allInjectVisitMethods) {
-                    injectVisitMethod.scanField(name, descriptor);
+                for (Map.Entry<TargetMethod, List<InjectVisitMethod>> target : injectMethodMap.entrySet()) {
+                    target.getValue().forEach(injectMethod -> injectMethod.scanField(name, descriptor));
                 }
 
                 return super.visitField(access, name, descriptor, signature, value);
@@ -45,46 +32,47 @@ public abstract class SimpleInjectClassEnhancer implements ClassEnhancer {
             @Override
             public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
                 MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-                Map<TargetMethod, List<IInjectVisitMethod>> targetMethod = transformerProvider.getTargetMethod();
-                for (Map.Entry<TargetMethod, List<IInjectVisitMethod>> entry : targetMethod.entrySet()) {
-                    TargetMethod method = entry.getKey();
-                    if (method.isTargetMethod(name, desc)) {
-                        List<IInjectVisitMethod> injectList = entry.getValue();
-                        List<InjectVisitMethod> injectVisitMethods = new ArrayList<>();
-                        for (IInjectVisitMethod iInjectVisitMethod : injectList) {
-                            if (injectList instanceof InjectVisitMethod) {
-                                injectVisitMethods.add((InjectVisitMethod) iInjectVisitMethod);
-                            }
-                            return new InjectMethodVisitor(mv, injectVisitMethods);
+                for (Map.Entry<TargetMethod, List<InjectVisitMethod>> target : injectMethodMap.entrySet()) {
+                    TargetMethod targetMethod = target.getKey();
+                    List<InjectVisitMethod> injectMethods = target.getValue();
+                    if (targetMethod.isTargetMethod(name, desc)) {
+                        for (InjectMethod injectMethod : target.getValue()) {
+                            injectMethod.setTargetMethodDesc(targetMethod.getDesc());
                         }
 
+                        return new InjectMethodVisitor(mv, className, access, desc, allInjectVisitMethods, injectMethods);
                     }
+
                 }
                 return mv;
             }
 
-            @Override
-            public void visitEnd() {
-                for (InjectVisitMethod injectVisitMethod : allInjectVisitMethods) {
-                    injectVisitMethod.injectCode(className);
-                }
 
-                super.visitEnd();
-            }
         };
     }
 
-
-    public InsertBefore defaultInsertBefore() {
-        return new InsertBefore() {
-            @Override
-            public void injectCode(MethodVisitor mv) {
-            }
-
-
-            @Override
-            public void injectCodeAfter() {
-            }
-        };
+    @Override
+    public boolean enhancer() {
+        return false;
     }
+
+    @Override
+    public boolean needFrame() {
+        return needFrame;
+    }
+
+    @Override
+    public void addOrMerge(TargetMethod targetMethod, InjectVisitMethod injectVisitMethod) {
+        List<InjectVisitMethod> injectMethods = injectMethodMap.get(targetMethod);
+        if (injectMethods == null) {
+            injectMethods = new ArrayList<>();
+        }
+        injectMethods.add(injectVisitMethod);
+        injectMethodMap.put(targetMethod, injectMethods);
+        if (injectVisitMethod.needFrame()) {
+            needFrame = true;
+        }
+    }
+
+
 }

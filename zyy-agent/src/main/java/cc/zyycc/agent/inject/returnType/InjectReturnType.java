@@ -1,21 +1,25 @@
-package cc.zyycc.agent.inject;
+package cc.zyycc.agent.inject.returnType;
 
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.LocalVariablesSorter;
 
-import java.util.function.Consumer;
-
 public class InjectReturnType {
     private final String methodName;
-    private final String desc;
+    protected String desc;
     private final int argIndex;
     private final boolean isObject;
-
+    private boolean empty;
 
     public InjectReturnType(String methodName, String desc) {
         this(methodName, desc, -1);
+    }
+
+    public static InjectReturnType empty() {
+        InjectReturnType v = new InjectReturnType("", "V");
+        v.empty = true;
+        return v;
     }
 
     public InjectReturnType(String methodName, String desc, int argIndex) {
@@ -42,7 +46,10 @@ public class InjectReturnType {
         return argIndex;
     }
 
-    public int go(String currentClassName, MethodVisitor mv) {
+    public int go(String currentClassName, MethodVisitor mv, int localIndex) {
+        if (empty) {
+            return localIndex;
+        }
         if (this.isModifyArg()) {
             if (isObject) {
                 mv.visitVarInsn(Opcodes.ASTORE, this.getArgIndex());
@@ -65,8 +72,26 @@ public class InjectReturnType {
         }
 //        return this.isModifyArg() ? this.getArgIndex() : newLocal(Type.getType(this.getDesc()), mv);
     }
+
     //自动计算索引
     public int newLocal(Type type, MethodVisitor mv) {
         return ((LocalVariablesSorter) mv).newLocal(type);
+    }
+
+
+    public void scanLocalVariable(MethodVisitor mv, int index) {
+        if (desc.equals("V")) {
+            return;
+        } else if (desc.startsWith("L") || desc.startsWith("[")) {
+            mv.visitVarInsn(Opcodes.ASTORE, index);
+        } else if (desc.equals("I") || desc.equals("Z")) {
+            mv.visitVarInsn(Opcodes.ISTORE, index);
+        } else if (desc.equals("J")) {  // long
+            mv.visitVarInsn(Opcodes.LSTORE, index);
+        } else if (desc.equals("F")) {
+            mv.visitVarInsn(Opcodes.FSTORE, index);
+        } else if (desc.equals("D")) {
+            mv.visitVarInsn(Opcodes.DSTORE, index);
+        }
     }
 }

@@ -1,27 +1,39 @@
 package cc.zyycc.agent.util;
 
-public class FieldSignatureHandle extends FieldHandle {
+public class FieldDescHandle extends FieldHandle {
+    private final String newDesc;
+    private final boolean reverseInterface;
+    private final String twoStageOwner;
 
+    public FieldDescHandle(String desc, String newDesc) {
+        this(null, desc, newDesc, false);
+    }
 
-    public FieldSignatureHandle(String originalSignature, String newSignature) {
-        this(null, null, originalSignature, newSignature);
+    public FieldDescHandle(String desc, String newDesc, boolean reverseInterface) {
+        this(null, desc, newDesc, reverseInterface);
+    }
+
+    public FieldDescHandle(String name, String desc, String newDesc, boolean reverseInterface) {
+        super(null, name, desc);
+        this.newDesc = newDesc;
+        this.reverseInterface = reverseInterface;
+        this.twoStageOwner = desc.substring(desc.indexOf('L') + 1, desc.indexOf(';'));
     }
 
 
-    public FieldSignatureHandle(String name, String originalSignature, String newSignature) {
-        this(null, name, originalSignature, newSignature);
+    public boolean isReverseInterface() {
+        return reverseInterface;
     }
 
-    public FieldSignatureHandle(String owner, String originalName, String originalSignature, String newSignature) {
-        super(owner, originalName, originalSignature, newSignature);
+
+    @Override
+    public String modifyOwner() {
+        return getOwner();
     }
 
     @Override
-    public String modify() {
-        if (getNewSignature() == null) {
-            return getSignature();
-        }
-        return getNewSignature();
+    public String modifyDesc() {
+        return newDesc;
     }
 
     @Override
@@ -30,4 +42,11 @@ public class FieldSignatureHandle extends FieldHandle {
     }
 
 
+    public boolean twoStageMatch(String owner) {
+        return owner.equals(twoStageOwner);
+    }
+
+    public String getNewOwner() {
+        return newDesc.substring(newDesc.indexOf('L') + 1, newDesc.indexOf(';'));
+    }
 }

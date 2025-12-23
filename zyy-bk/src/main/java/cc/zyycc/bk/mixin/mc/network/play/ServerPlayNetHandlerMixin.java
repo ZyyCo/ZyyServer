@@ -1,42 +1,45 @@
-package cc.zyycc.bk.mixin.mc.network;
+package cc.zyycc.bk.mixin.mc.network.play;
 
+import cc.zyycc.bk.bridge.SimpleBridge;
+import cc.zyycc.bk.bridge.network.play.ServerPlayNetHandlerBridge;
 import cc.zyycc.bk.bridge.player.ServerPlayerEntityBridge;
-import cc.zyycc.bk.bridge.server.CraftServerBridge;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Floats;
+import io.netty.channel.Channel;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.MoverType;
+import net.minecraft.crash.CrashReport;
+import net.minecraft.crash.CrashReportCategory;
+import net.minecraft.crash.ReportedException;
+import net.minecraft.entity.player.ChatVisibility;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.network.IPacket;
+import net.minecraft.network.NetworkManager;
 import net.minecraft.network.PacketThreadUtil;
 import net.minecraft.network.play.ServerPlayNetHandler;
+import net.minecraft.network.play.client.CConfirmTeleportPacket;
+import net.minecraft.network.play.client.CCustomPayloadPacket;
 import net.minecraft.network.play.client.CMoveVehiclePacket;
+import net.minecraft.network.play.client.CPlayerPacket;
 import net.minecraft.network.play.server.*;
-import net.minecraft.server.management.PlayerList;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.vector.Vector3d;
+import net.minecraft.util.text.ChatType;
 import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TranslationTextComponent;
-import net.minecraft.world.server.ServerWorld;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.v1_16_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Overwrite;
-import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 
 @Mixin(ServerPlayNetHandler.class)
-public abstract class ServerPlayNetHandlerMixin {
+public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerBridge {
     @Shadow
     private double lowestRiddenX;
     @Shadow
@@ -44,16 +47,21 @@ public abstract class ServerPlayNetHandlerMixin {
     @Shadow
     private double lowestRiddenZ;
     @Shadow
+    @Final
+    public NetworkManager netManager;
+    @Shadow
     public ServerPlayerEntity player;
     @Shadow
     private Vector3d targetPos;
 
     @Shadow
     private int teleportId;
-
-
+    @Final
     @Shadow
-    public abstract void setPlayerLocation(double p_175089_1_, double p_175089_3_, double p_175089_5_, float p_175089_7_, float p_175089_8_, Set<SPlayerPositionLookPacket.Flags> p_175089_9_);
+    private MinecraftServer server;
+
+    @Unique
+    private PlayerTeleportEvent.TeleportCause cause;
 
 
     @Shadow
@@ -70,9 +78,41 @@ public abstract class ServerPlayNetHandlerMixin {
     private double lastPosZ;
     private float lastYaw;
     private float lastPitch;
+    @Shadow
+    private double lastGoodX;
+    @Shadow
+    private double lastGoodY;
+    @Shadow
+    private double lastGoodZ;
+
+    @Inject(method = "<init>", at = @At("RETURN"))
+    private void init(MinecraftServer server, NetworkManager networkManagerIn, ServerPlayerEntity playerIn, CallbackInfo ci) {
+        lastPosX = Double.MAX_VALUE;
+        lastPosY = Double.MAX_VALUE;
+        lastPosZ = Double.MAX_VALUE;
+        lastPitch = Float.MAX_VALUE;
+        lastYaw = Float.MAX_VALUE;
+        justTeleported = false;
+
+    }
+
+    @Override
+    public boolean bridge$isDisconnected() {
+        return this.isDisconnected();
+    }
+
+    @Override
+    public void bridge$teleport(Location dest) {
+        teleport(dest);
+    }
+
 
     public CraftPlayer getPlayer() {
         return this.player == null ? null : ((ServerPlayerEntityBridge) this.player).getBukkitEntity();
+    }
+
+    public final boolean isDisconnected() {
+        return !((ServerPlayerEntityBridge) this.player).bridge$isJoining() && !this.netManager.isChannelOpen();
     }
 
     public void teleport(Location location) {
@@ -105,13 +145,39 @@ public abstract class ServerPlayNetHandlerMixin {
         this.lastYaw = f;
         this.lastPitch = f1;
         this.lastPositionUpdate = this.networkTickCount;
+
         this.player.setPositionAndRotation(d0, d1, d2, f, f1);
+        System.out.println("传送玩家当前包id" + this.teleportId + "传送到" + d0 + " " + d1 + " " + d2);
+        if(teleportId == 2){
+            System.out.println(1);
+        }
         this.player.connection.sendPacket(new SPlayerPositionLookPacket(d0 - d3, d1 - d4, d2 - d5, f - f2, f1 - f3, set, this.teleportId));
     }
 
+    public void a(double d0, double d1, double d2, float f, float f1, PlayerTeleportEvent.TeleportCause cause) {
+        this.a(d0, d1, d2, f, f1, Collections.emptySet(), cause);
+    }
+
+    public void a(double d0, double d1, double d2, float f, float f1, Set<SPlayerPositionLookPacket.Flags> set, PlayerTeleportEvent.TeleportCause cause) {
+        bridge$teleportCause(cause);
+        this.setPlayerLocation(d0, d1, d2, f, f1, set);
+    }
+
+    /**
+     * @author a
+     * @reason a
+     */
+    @Overwrite
+    public void setPlayerLocation(double x, double y, double z, float yaw, float pitch, Set<SPlayerPositionLookPacket.Flags> relativeSet) {
+        setPlayerLocation(x, y, z, yaw, pitch, relativeSet, PlayerTeleportEvent.TeleportCause.UNKNOWN);
+    }
 
     public boolean setPlayerLocation(double d0, double d1, double d2, float f, float f1, Set<SPlayerPositionLookPacket.Flags> set, PlayerTeleportEvent.TeleportCause cause) {
-        System.out.println("知道了 setPlayerLocation" + this);
+        if (this.cause == null) {
+            cause = PlayerTeleportEvent.TeleportCause.UNKNOWN;
+        } else {
+            this.cause = null;
+        }
         Player player = this.getPlayer();
         Location from = player.getLocation();
         Location to = new Location(this.getPlayer().getWorld(), d0, d1, d2, f, f1);
@@ -120,7 +186,7 @@ public abstract class ServerPlayNetHandlerMixin {
             return false;
         } else {
             PlayerTeleportEvent event = new PlayerTeleportEvent(player, from.clone(), to.clone(), cause);
-            CraftServerBridge.craftServer.getPluginManager().callEvent(event);
+            ((SimpleBridge) server).bridge$getCraftServer().getPluginManager().callEvent(event);
             if (event.isCancelled() || !to.equals(event.getTo())) {
                 set.clear();
                 to = event.isCancelled() ? event.getFrom() : event.getTo();
@@ -131,15 +197,40 @@ public abstract class ServerPlayNetHandlerMixin {
                 f1 = to.getPitch();
             }
 
+
             this.internalTeleport(d0, d1, d2, f, f1, set);
             return event.isCancelled();
         }
+    }
+
+    /**
+     * @author a
+     * @reason a
+     */
+    @Overwrite
+    public void processConfirmTeleport(CConfirmTeleportPacket packetIn) {
+        System.out.println("确认传送");
+        PacketThreadUtil.checkThreadAndEnqueue(packetIn, (ServerPlayNetHandler) (Object) this, this.player.getServerWorld());
+        if (packetIn.getTeleportId() == this.teleportId) {
+            this.player.setPositionAndRotation(this.targetPos.x, this.targetPos.y, this.targetPos.z, this.player.rotationYaw, this.player.rotationPitch);
+            this.lastGoodX = this.targetPos.x;
+            this.lastGoodY = this.targetPos.y;
+            this.lastGoodZ = this.targetPos.z;
+            if (this.player.isInvulnerableDimensionChange()) {
+                this.player.clearInvulnerableDimensionChange();
+            }
+
+            this.targetPos = null;
+            this.player.getServerWorld().getChunkProvider().updatePlayerPosition(this.player);
+        }
+
     }
 
     @Unique
     private static boolean zyyServer$isMoveVehiclePacketInvalid(CMoveVehiclePacket p_184341_0_) {
         return !Doubles.isFinite(p_184341_0_.getX()) || !Doubles.isFinite(p_184341_0_.getY()) || !Doubles.isFinite(p_184341_0_.getZ()) || !Floats.isFinite(p_184341_0_.getPitch()) || !Floats.isFinite(p_184341_0_.getYaw());
     }
+
 
     @Inject(method = "processVehicleMove", at = @At("HEAD"))
     public void processVehicleMove(CMoveVehiclePacket p_184338_1_, CallbackInfo ci) {
@@ -210,19 +301,12 @@ public abstract class ServerPlayNetHandlerMixin {
 
     }
 
-    @Inject(method = "setPlayerLocation(DDDFFLjava/util/Set;)V", at = @At("HEAD"))
-    public void setPlayerLocation(double p_175089_1_, double p_175089_3_, double p_175089_5_, float p_175089_7_, float p_175089_8_, Set<SPlayerPositionLookPacket.Flags> p_175089_9_, CallbackInfo ci) {
-        System.out.println("知道了setPlayerLocation");
-    }
 
 
     @Inject(method = "sendPacket(Lnet/minecraft/network/IPacket;Lio/netty/util/concurrent/GenericFutureListener;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/NetworkManager;sendPacket(Lnet/minecraft/network/IPacket;Lio/netty/util/concurrent/GenericFutureListener;)V"))
     private void sendPacket(IPacket<?> packetIn, GenericFutureListener<? extends Future<? super Void>> futureListeners, CallbackInfo ci) {
 
-//        if (packetIn instanceof STeamsPacket) {
-//            System.out.println("packetIn" + packetIn);
-//            System.out.println("futureListeners" + futureListeners);
-//        }
+//        this.netManager.channel = unwrapChannel(this.netManager.channel);
         if (packetIn != null && !this.processedDisconnect) {
             if (packetIn instanceof SWorldSpawnChangedPacket) {
                 SWorldSpawnChangedPacket packet6 = (SWorldSpawnChangedPacket) packetIn;
@@ -230,4 +314,16 @@ public abstract class ServerPlayNetHandlerMixin {
             }
         }
     }
+
+
+
+
+    @Override
+    public void bridge$teleportCause(PlayerTeleportEvent.TeleportCause cause) {
+        this.cause = cause;
+    }
+
+
+
+
 }

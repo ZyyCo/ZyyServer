@@ -1,4 +1,4 @@
-package cc.zyycc.common.bridge.loader;
+package cc.zyycc.common.loader;
 
 public enum MyLoader {
     ZYY("zyyLoader"),

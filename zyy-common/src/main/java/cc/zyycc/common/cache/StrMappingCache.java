@@ -1,11 +1,14 @@
-package cc.zyycc.remap.cache;
-
-import java.nio.file.Path;
+package cc.zyycc.common.cache;
 
 
-public class StrMappingCache<C> extends BaseCache<String> {
-    public StrMappingCache(Path cacheFile, Path cacheFailFile) {
-        super(cacheFile, cacheFailFile);
+import java.nio.file.Paths;
+
+
+public class StrMappingCache extends BaseCache<String, String> {
+
+    public StrMappingCache(String cacheFile, String cacheFailFile) {
+        super(Paths.get(".zyy", "cache/mappings/"), cacheFile + ".txt",
+                cacheFailFile + ".txt");
     }
 
     @Override

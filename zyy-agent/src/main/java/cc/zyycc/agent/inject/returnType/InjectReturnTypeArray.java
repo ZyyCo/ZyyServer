@@ -1,4 +1,4 @@
-package cc.zyycc.agent.inject;
+package cc.zyycc.agent.inject.returnType;
 
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;

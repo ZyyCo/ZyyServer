@@ -1,4 +1,4 @@
-package cc.zyycc.common.mapper.loader;
+package cc.zyycc.remap.loader;
 
 public class RemappingClassLoader extends ClassLoader{
     public RemappingClassLoader(ClassLoader parent) {

@@ -1,4 +1,4 @@
-package cc.zyycc.bk.mixin.core.world.server;
+package cc.zyycc.bk.mixin.mc.world.server;
 
 import net.minecraft.util.Unit;
 import net.minecraft.world.server.TicketType;

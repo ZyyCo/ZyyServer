@@ -1,4 +1,4 @@
-package cc.zyycc.agent.enhancer;
+package cc.zyycc.agent.inject;
 
 
 import org.objectweb.asm.MethodVisitor;

@@ -1,12 +1,12 @@
 package cc.zyycc.remap.cache;
 
-public class DefultRule implements CacheRule{
+public class DefaultRule implements CacheRule{
     @Override
     public BaseCache.Rule lineRule(String line) {
         int s1 = line.indexOf(' ');            // between token0 and token1
         int s2 = line.indexOf(' ', s1 + 1);    // between token1 and token2
         int s3 = line.indexOf(' ', s2 + 1);    // between token2 and token3
-        
+
 
         // Fail case (no space)
         if (s1 == -1) {

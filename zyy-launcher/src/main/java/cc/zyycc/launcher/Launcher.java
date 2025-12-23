@@ -1,125 +1,105 @@
 package cc.zyycc.launcher;
 
 import cc.zyycc.common.VersionInfo;
-import cc.zyycc.core.util.LoaderHandler;
+import cc.zyycc.common.bridge.BridgeHolder;
+import cc.zyycc.common.bridge.InstrumentationBridge;
+import cc.zyycc.common.util.Version;
+import cc.zyycc.forge.MainForge;
+
 
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.jar.JarFile;
 
 public class Launcher {
-    public static void main(String[] args) throws Exception {
-
-        // 准备服务端目录（配置文件）
-        ServerInitializer.prepareServerDirectory(new File(VersionInfo.FORGE_LOCAL_PATH));
 
 
-        //创建工作目录
-        Files.createDirectories(Paths.get(VersionInfo.WORKING_DIR));
-
-        Path cacheZyy = extractInternalJar("zyy.jar", "zyyaruzi.jar", null);
-        //core
-        Path cacheCore = extractInternalJar("zyy-core.jar", "nashicore.jar", null);
-        //common
-        extractInternalJar("zyy-common.jar", "kissCommon.jar", ClassLoader.getSystemClassLoader());
-
-        //agent
-        Path cacheAgent = extractInternalJar("zyy-agent.jar", "agent.jar", null);
+    public static final String WORKING_DIR = ".zyy";
 
 
+    public static void main(String[] args) {
 
-        Path toolsPath = Paths.get("C:/Program Files/Java/jdk1.8.0_321/lib/tools.jar");
-        loadAgent(new URLClassLoader(new URL[]{toolsPath.toUri().toURL()}), cacheAgent);
-//        addToPath(ClassLoader.getSystemClassLoader(), cacheCore);
-//        addToPath(ClassLoader.getSystemClassLoader(), cacheZyy);
-//        addToPath(ClassLoader.getSystemClassLoader(), cacheBK);
-//        Class<?> aClass = Class.forName("cc.zyycc.forge.MainForge");
+        if (!Version.checkJavaVersion()) {
+            System.err.println("版本错误");
+            System.exit(1);
+        }
+        try {
+
+            // 准备服务端目录（配置文件）
+            boolean canStart = ServerInitializer.prepareServerDirectory(new File(VersionInfo.WORKING_DIR));
+            //创建缓存 目录
+            Files.createDirectories(Paths.get(WORKING_DIR));
+
+            BridgeHolder.setOptionParser(args);
+
+            ClassLoader myLoader = InitLib.initLoader();
+
+            InitLib.startForgeServer(args, myLoader, canStart);
+
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+    }
+
+
 //
-//        aClass.getMethod("startForgeServer", String[].class).invoke(aClass, (Object) args);
+//    private static void addToPath(ClassLoader loader, Path path) throws Throwable {
+//
+//        Field ucpField;
+//        try {
+//            ucpField = loader.getClass().getDeclaredField("ucp");
+//        } catch (NoSuchFieldException e) {
+//            ucpField = loader.getClass().getSuperclass().getDeclaredField("ucp");
+//        }
+//        long offset = Unsafe.objectFieldOffset(ucpField);
+//        Object ucp = Unsafe.getObject(loader, offset);
+//        Method method = ucp.getClass().getDeclaredMethod("addURL", URL.class);
+//        Unsafe.lookup().unreflect(method).invoke(ucp, path.toUri().toURL());
+//    }
 
+//    private static void openAttachModule() {
+//        try {
+//            Class<?> vmClass = Class.forName("com.sun.tools.attach.VirtualMachine");
+//            Module jdkAttach = vmClass.getModule();
+//            Module current = Launcher.class.getModule();
+//            Method addOpens = Module.class.getDeclaredMethod("addOpens", String.class, Module.class);
+//            addOpens.setAccessible(true);
+//            addOpens.invoke(jdkAttach, "sun.tools.attach", current);
+//        } catch (Throwable t) {
+//            t.printStackTrace();
+//        }
+//    }
 
-        URL[] allUrls = new URL[]{
-                cacheCore.toUri().toURL(),
-                cacheZyy.toUri().toURL(),
-                // Launcher.class.getProtectionDomain().getCodeSource().getLocation()
-        };
-
-
-        try (URLClassLoader loader = new URLClassLoader(allUrls, Launcher.class.getClassLoader())) {
-
-            Class<?> cl = loader.loadClass("cc.zyycc.forge.MainForge");
-
-            cl.getMethod("startForgeServer", String[].class)
-                    .invoke(null, (Object) args);
-
-        }
-
-    }
-
-
-    public static Path extractInternalJar(String internalPathInJar, String cacheDir, ClassLoader premountClassLoader) throws IOException {
-
-        String pathInJar = "/" + VersionInfo.INTERNALPATH + "/" + internalPathInJar;
-        try (InputStream is = Launcher.class.getResourceAsStream(pathInJar)) {
-            if (is == null) {
-                throw new FileNotFoundException("没找到内嵌核心资源: " + pathInJar);
+    private static Path loadToolsPath() {
+        Path toolsPath = Paths.get("C:/Program Files/Java/jdk1.8.0_321/lib/tools.jar");
+        if (!toolsPath.toFile().exists()) {
+            try {
+                Path javaHome = Paths.get(System.getProperty("java.home"));
+                toolsPath = javaHome.resolve("lib").resolve("tools.jar");
+                return toolsPath;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
-            Path path = Paths.get(VersionInfo.WORKING_DIR, cacheDir);
-            Files.copy(is, path, StandardCopyOption.REPLACE_EXISTING);
-            if (premountClassLoader != null) {
-                addToPath(premountClassLoader, path);
-            }
-            return path;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
+        return toolsPath;
     }
 
-
-    public static void addToPath(ClassLoader loader, Path path) throws Exception {
-
-        Field ucpField;
-        try {
-            ucpField = loader.getClass().getDeclaredField("ucp");
-        } catch (NoSuchFieldException e) {
-            ucpField = loader.getClass().getSuperclass().getDeclaredField("ucp");
-        }
-        ucpField.setAccessible(true);
-        Object ucp = ucpField.get(loader);
-        Method addUrlMethod = ucp.getClass().getDeclaredMethod("addURL", URL.class);
-        addUrlMethod.setAccessible(true);
-
-        addUrlMethod.invoke(ucp, path.toUri().toURL());
-
-    }
-
-    public static void loadAgent(ClassLoader loader, Path cacheAgent) {
+    public static void loadAgent(ClassLoader loader, Path agentPath) {
 
         try {
-            Class<?> vmClass = loader.loadClass("com.sun.tools.attach.VirtualMachine");
+
+            Class<?> jdkAttach = loader.loadClass("com.sun.tools.attach.VirtualMachine");
 
             String pid = java.lang.management.ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
-
             // attach 到当前 JVM
-            Object vm = vmClass.getMethod("attach", String.class).invoke(null, pid);
+            Object vm = jdkAttach.getMethod("attach", String.class).invoke(null, pid);
 
-
-            vmClass.getMethod("loadAgent", String.class)
-                    .invoke(vm, cacheAgent.toAbsolutePath().toString());
+            jdkAttach.getMethod("loadAgent", String.class)
+                    .invoke(vm, agentPath.toAbsolutePath().toString());
             // detach
-            vmClass.getMethod("detach").invoke(vm);
+            jdkAttach.getMethod("detach").invoke(vm);
 
         } catch (ClassNotFoundException e) {
             System.err.println("❌ 未安装 JDK，缺少 VirtualMachine，请安装完整 JDK");
@@ -130,6 +110,15 @@ public class Launcher {
             System.exit(1);
         }
     }
+
+//    private static Class<?> loadClassUsingUnsafe(String className, ClassLoader classLoader) throws Exception {
+//        // 获取类的字节码数据
+//        byte[] classData = getClassData(className);
+//        UnsafeHelper.unsafe.
+//        // 通过 Unsafe.defineClass 手动加载类
+//        return  UnsafeHelper.unsafe.defineClass(className, classData, 0, classData.length, classLoader, null);
+//    }
+
 
 }
 

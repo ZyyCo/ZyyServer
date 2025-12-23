@@ -1,4 +1,4 @@
-package cc.zyycc.remap.cache;
+package cc.zyycc.common.cache;
 
 
 import java.io.BufferedReader;
@@ -9,20 +9,36 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static cc.zyycc.remap.cache.BaseCache.Rule.FAIL;
-import static cc.zyycc.remap.cache.BaseCache.Rule.SUCCESS;
+import static cc.zyycc.common.cache.BaseCache.Rule.FAIL;
+import static cc.zyycc.common.cache.BaseCache.Rule.SUCCESS;
 
-public abstract class BaseCache<C> {
+public abstract class BaseCache<R, C> {
     public final Map<String, String> cacheMappingSuccessMap = new ConcurrentHashMap<>();
     public final Map<String, String> cacheMappingError = new ConcurrentHashMap<>();
     protected final Path cacheFile;
     protected final Path cacheFailFile;
+    protected final Path dir;
+    private final CacheRule cacheRule;
 
-    public BaseCache(Path cacheFile, Path cacheFailFile) {
-        this.cacheFile = cacheFile;
-        this.cacheFailFile = cacheFailFile;
-        load(cacheFile, 0);
-        load(cacheFailFile, 1);
+
+    public BaseCache(Path dir, String cacheFile, String cacheFailFile) {
+        this(dir, cacheFile, cacheFailFile, new DefaultRule(), true);
+    }
+
+
+    public BaseCache(Path dir, String cacheFile, String cacheFailFile, CacheRule lineRule, boolean loadDefault) {
+        this.dir = dir;
+        this.cacheFile = this.dir.resolve(cacheFile);
+        this.cacheFailFile = this.dir.resolve(cacheFailFile);
+        this.cacheRule = lineRule;
+        if (loadDefault) {
+            load(this.cacheFile, 0);
+            load(this.cacheFailFile, 1);
+        }
+        if (!loadDefault) {
+            System.out.println("文件路径" + cacheFile);
+        }
+
     }
 
 
@@ -33,13 +49,13 @@ public abstract class BaseCache<C> {
         try (BufferedReader reader = Files.newBufferedReader(cacheFile)) {
             String line;
             while ((line = reader.readLine()) != null) {
-                Rule rule = lineRule(line);
+                Rule rule = this.cacheRule.lineRule(line);
                 if (mode == SUCCESS) {
                     cacheMappingSuccessMap.put(rule.left, rule.right);
                 } else if (mode == FAIL) {
                     cacheMappingError.put(rule.left, rule.right);
                 } else {
-                    customMode();
+                    customMode(rule);
                 }
             }
         } catch (IOException e) {
@@ -47,7 +63,7 @@ public abstract class BaseCache<C> {
         }
     }
 
-    public void customMode() {
+    public void customMode(Rule rule) {
     }
 
     public synchronized void saveToFile(Path cacheFile, String left, String right) {
@@ -82,10 +98,18 @@ public abstract class BaseCache<C> {
         saveToFile(cacheFile, str1, str2);
     }
 
-    public void addFail(String string, String reason) {
+    public void writeFile(String str1, String str2) {
+        saveToFile(cacheFile, str1, str2);
+    }
+
+    public void addFail(String string, String reason, boolean save) {
         cacheMappingError.put(string, reason);
-        saveToFile(cacheFailFile, string, reason);
-        System.err.println("[RemapFail] -> " + reason);
+        if (save) {
+            saveToFile(cacheFailFile, string, reason);
+            System.err.println("[RemapFail] -> " + reason);
+        }
+
+
     }
 
 
@@ -120,12 +144,12 @@ public abstract class BaseCache<C> {
         return new Rule(left, right);
     }
 
-
     public static class Rule {
         public static final int SUCCESS = 0;
         public static final int FAIL = 1;
-        private final String left;
-        private final String right;
+        public static final int CUSTOM = 2;
+        protected final String left;
+        protected final String right;
 
         public Rule(String left) {
             this.left = left;
@@ -136,6 +160,7 @@ public abstract class BaseCache<C> {
             this.left = left;
             this.right = right;
         }
+
         public static Rule empty() {
             return new Rule("");
         }

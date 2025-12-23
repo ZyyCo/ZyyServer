@@ -1,9 +1,10 @@
-package cc.zyycc.gradle.asm;
+package cc.zyycc.plugin.tasks.asm;
 
-import cc.zyycc.gradle.api.ClassEnhancer;
-import org.gradle.api.*;
+import org.gradle.api.DefaultTask;
 import org.gradle.api.tasks.TaskAction;
-import org.objectweb.asm.*;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ClassWriter;
 
 import java.io.*;
 import java.util.HashMap;
@@ -42,9 +43,13 @@ public class AsmTransformTask extends DefaultTask {
     }
 
     public void registerEnhancer(String targetClass, Function<ClassWriter, ClassVisitor> function) {
+        if(targetClass.contains("/")){
+            targetClass = targetClass.replaceAll("/", ".");
+        }
         if (!targetClass.endsWith(".class")) {
             targetClass = targetClass + ".class";
         }
+
         enhancerMap.put(targetClass, function);
     }
 

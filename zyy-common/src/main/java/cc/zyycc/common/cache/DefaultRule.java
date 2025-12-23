@@ -1,4 +1,4 @@
-package cc.zyycc.remap.cache;
+package cc.zyycc.common.cache;
 
 public class DefaultRule implements CacheRule{
     @Override

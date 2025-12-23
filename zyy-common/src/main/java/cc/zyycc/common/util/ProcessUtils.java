@@ -1,4 +1,4 @@
-package cc.zyycc.core.util;
+package cc.zyycc.common.util;
 
 import java.io.*;
 import java.util.List;

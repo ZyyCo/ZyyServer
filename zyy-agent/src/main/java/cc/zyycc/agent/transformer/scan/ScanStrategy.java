@@ -1,24 +1,35 @@
 package cc.zyycc.agent.transformer.scan;
 
 
+import cc.zyycc.agent.transformer.TransformerProvider;
+
+import java.security.ProtectionDomain;
+import java.util.List;
 import java.util.function.Predicate;
 
-public class BaseScan implements IScan {
-    protected final String targetClassName;
+public class ScanStrategy implements IScan {
+    protected List<String> targetClassNames;
     protected Predicate<String> targetClassNamePredicate;
     protected String classLoader;
-    public BaseScan(String targetClassName) {
-        this.targetClassName = targetClassName.replace('.', '/');
-        if (this.targetClassName.contains("*")) {
-            this.targetClassNamePredicate = className -> {
-                if (this.targetClassName.length() > 1) {
-                    String replace = this.targetClassName.replace("*", "");
-                    return className.startsWith(replace);
-                }
-                return true;
-            };
-        } else {
-            this.targetClassNamePredicate = className -> className.equals(this.targetClassName);
+    protected boolean already;
+
+
+    public ScanStrategy(List<String> targetClassNames) {
+        this.targetClassNames = targetClassNames;
+        targetClassNamePredicate = className -> false;
+        for (String targetClassName : targetClassNames) {
+            targetClassName = targetClassName.replace(".", "/");
+            if (targetClassName.equals("*")) {
+                targetClassNamePredicate = className -> true;
+                break;
+            }
+            if (targetClassName.contains("*")) {
+                String replace = targetClassName.replace("*", "");
+                this.targetClassNamePredicate = targetClassNamePredicate.or(className -> className.startsWith(replace));
+            } else {
+                String finalTargetClassName = targetClassName;
+                this.targetClassNamePredicate = targetClassNamePredicate.or(className -> className.equals(finalTargetClassName));
+            }
         }
     }
 
@@ -28,14 +39,30 @@ public class BaseScan implements IScan {
     }
 
     @Override
-    public boolean scan(ClassLoader loader, String className, byte[] classfileBuffer) {
-        return false;
+    public boolean scan(TransformerProvider provider, ClassLoader loader, String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) {
+        if (!targetClassNamePredicate.test(className)) {
+            return false;
+        }
+
+        if (!already && classBeingRedefined != null && provider.getProcessed().contains(className)) {
+            System.out.println("已处理过，不允许重复，本次跳过: " + className);
+            return false;
+        }
+        return true;
     }
 
+
     @Override
-    public BaseScan moveClass(BaseScan scan) {
+    public ScanStrategy moveClass(ScanStrategy scan) {
         return scan.moveClass(this);
     }
 
 
+    public void already() {
+        this.already = true;
+    }
+
+    public String getClassLoader() {
+        return classLoader;
+    }
 }

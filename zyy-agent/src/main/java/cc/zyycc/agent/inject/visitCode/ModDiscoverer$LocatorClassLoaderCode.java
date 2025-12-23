@@ -1,4 +1,4 @@
-package cc.zyycc.agent.enhancer.visitor;
+package cc.zyycc.agent.inject.visitCode;
 
 import cc.zyycc.agent.inject.visitCode.MyMethodVisitor;
 import cc.zyycc.agent.inject.visitCode.InjectVisitCode;
@@ -11,11 +11,6 @@ import static org.objectweb.asm.Opcodes.GETSTATIC;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 
 public class ModDiscoverer$LocatorClassLoaderCode extends InjectVisitCode {
-    public static int line = 0;
-    int state = 0;
-    boolean patched = false;
-
-
 
     @Override
     public Consumer<MethodVisitor> visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface, MyMethodVisitor context) {
@@ -91,5 +86,10 @@ public class ModDiscoverer$LocatorClassLoaderCode extends InjectVisitCode {
 
 
         //};
+    }
+
+    @Override
+    public boolean needFrame() {
+        return false;
     }
 }

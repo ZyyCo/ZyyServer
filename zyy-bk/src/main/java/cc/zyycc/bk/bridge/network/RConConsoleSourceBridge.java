@@ -1,4 +1,8 @@
 package cc.zyycc.bk.bridge.network;
 
-public class RConConslieSourceBridge {
+import net.minecraft.command.CommandSource;
+import org.bukkit.command.CommandSender;
+
+public interface RConConsoleSourceBridge {
+    CommandSender bridge$getBukkitSender(CommandSource commandSource);
 }

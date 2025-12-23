@@ -1,10 +1,11 @@
 package cc.zyycc.plugin.tasks;
 
+import org.gradle.api.DefaultTask;
 import org.gradle.api.tasks.OutputFile;
 
 import java.io.File;
 
-public class SetipSpigot {
+public class SetupSpigot extends DefaultTask {
 
     private File outputFile;
 

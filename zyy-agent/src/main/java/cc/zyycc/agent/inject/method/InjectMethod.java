@@ -1,86 +1,35 @@
-package cc.zyycc.agent.enhancer;
+package cc.zyycc.agent.inject.method;
 
+import cc.zyycc.agent.inject.*;
+import cc.zyycc.agent.inject.returnType.InjectReturnType;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-public class InjectMethod {
-    protected final Map<String, String> collectedFields = new ConcurrentHashMap<>();
-    protected final String[] passParameters;
+public abstract class InjectMethod extends IInjectMode {
     private final String injectMethodName;
     private final String injectClassName;
-    private final InjectReturnType returnType;
+    protected InjectReturnType returnType;
+    protected final String resultPackage;
+    protected String targetMethodDesc;
 
-
-    public InjectMethod(String injectClassName, String injectMethodName, String... passParameters) {
-        this(injectClassName, injectMethodName, null, passParameters);
+    public InjectMethod(String resultPackage, String injectClassName, String injectMethodName) {
+        this(resultPackage, injectClassName, injectMethodName, null);
     }
 
-    public InjectMethod(String injectClassName, String injectMethodName, InjectReturnType returnType, String... passParameters) {
-        this.passParameters = passParameters;
+    public InjectMethod(String resultPackage, String injectClassName, String injectMethodName, InjectReturnType returnType) {
+        this.resultPackage = resultPackage;
         this.injectMethodName = injectMethodName;
         this.returnType = returnType;
         this.injectClassName = injectClassName;
     }
-//
-//    public InjectMethod(String injectClassName, String injectMethodName, InjectReturnType returnType, InjectVisitMethod[] injectMethodVisitor) {
-//        this.injectMethodVisitor = injectMethodVisitor;
-//        List<String> list = new ArrayList<>();
-//        for (InjectVisitMethod injectVisitMethod : injectMethodVisitor) {
-//            Collections.addAll(list, injectVisitMethod.injectFields);
-//        }
-//        this.passParameters = list.toArray(new String[0]);
-//        this.injectMethodName = injectMethodName;
-//        this.returnType = returnType;
-//        this.injectClassName = injectClassName;
-//
+
+//    public VariableCapture getVariableCapture() {
+//        return variableCapture;
 //    }
 
 
-    public void scanField(String name, String descriptor) {
-        for (String passParameter : passParameters) {
-            if (name.equals(passParameter)) {//"field_197062_b"
-                collectedFields.put(name, descriptor);
-            }
-        }
-    }
+    public abstract void scanField(String name, String descriptor);
 
-    public void injectCode(String className) {
-    }
-
-
-    public void injectCode(MethodVisitor mv, String className) {
-
-        //压栈
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        StringBuilder sb = new StringBuilder("(");
-        sb.append("L").append(className).append(";"); // 第一个参数 this
-
-        for (Map.Entry<String, String> entry : collectedFields.entrySet()) {
-            mv.visitVarInsn(Opcodes.ALOAD, 0); // this.field_197062_b
-            mv.visitFieldInsn(Opcodes.GETFIELD, className, entry.getKey(), entry.getValue());
-            sb.append(entry.getValue());
-        }
-        if (returnType == null) {
-            sb.append(")V");
-        } else {
-            sb.append(")").append(returnType.getDesc());
-        }
-
-
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC,
-                injectClassName,
-                injectMethodName, sb.toString(), false);
-
-        if (returnType != null) {
-            returnType.go(className, mv);
-        }
-    }
 
     public String getInjectMethodName() {
         return injectMethodName;
@@ -88,10 +37,6 @@ public class InjectMethod {
 
     public String getInjectClassName() {
         return injectClassName;
-    }
-
-    public int maxStack() {
-        return collectedFields.size() + 2;
     }
 
     public void injectModifyArg(MethodVisitor mv, String className, int paramIndex) {
@@ -111,6 +56,18 @@ public class InjectMethod {
 
         // 4. 覆盖回原参数槽位
         mv.visitVarInsn(Opcodes.ASTORE, paramIndex);
+    }
+
+    public InjectReturnType getReturnType() {
+        return returnType;
+    }
+
+    public void setTargetMethodDesc(String targetMethodDesc) {
+        this.targetMethodDesc = targetMethodDesc;
+    }
+
+    public String getTargetMethodDesc() {
+        return targetMethodDesc;
     }
 
 

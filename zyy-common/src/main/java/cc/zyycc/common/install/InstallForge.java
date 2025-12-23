@@ -1,14 +1,14 @@
-package cc.zyycc.installer;
+package cc.zyycc.common.install;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.function.Supplier;
-import java.util.jar.JarFile;
-import java.util.jar.Manifest;
 
 
 public class InstallForge {

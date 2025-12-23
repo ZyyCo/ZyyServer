@@ -1,10 +1,10 @@
-package cc.zyycc.agent.inject.method;
+package cc.zyycc.agent.inject.method.byteMatcher;
 
-public class BytecodeMatcher {
+import org.objectweb.asm.MethodVisitor;
 
-    public BytecodeMatcher(){
-        
-    }
+public interface BytecodeMatcher {
+
+    MethodVisitor match(MethodVisitor mv);
 
 
 }

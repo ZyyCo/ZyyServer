@@ -1,7 +1,7 @@
-package cc.zyycc.common.mapper;
+package cc.zyycc.remap;
 
-import cc.zyycc.common.mapper.method.MethodMappingEntry;
-import cc.zyycc.common.util.MapperUtil;
+import cc.zyycc.remap.method.MappingManager;
+import cc.zyycc.remap.method.MethodMappingEntry;
 
 import java.util.Map;
 
@@ -15,10 +15,10 @@ public enum MappingDirection {
 
     public static MethodMappingEntry normalizeEntry(MethodMappingEntry entry, MappingDirection direction) {
         if (direction == MappingDirection.FORGE_TO_BUKKIT) {
-            entry = transformationToBukkit(entry, MappingsResolver.getConvertedClass());
+            entry = transformationToBukkit(entry, MappingManager.getConvertedClasses());
         }
         if (direction == MappingDirection.BUKKIT_TO_FORGE) {
-            entry = transformationToForge(entry, MappingsResolver.getMappingClasses());
+            entry = transformationToForge(entry, MappingManager.getMappingClasses());
         }
         return entry;
     }
@@ -28,18 +28,18 @@ public enum MappingDirection {
     }
 
     public static MethodMappingEntry transformationToBukkit(MethodMappingEntry entry, Map<String, String> mappings) {
-        if (MapperUtil.isForgeClass(entry.getClassName())) {
+        if (MappingUtil.isForgeClass(entry.getClassName())) {
             String bkClass = mappings.get(entry.getClassName());
             if (bkClass != null) {
                 entry.setClassName(bkClass);
             }
         }
-        if (MapperUtil.isForgeParams(entry.getParams())) {
-            String params = MapperUtil.mapDesc(entry.getParams(), mappings);
+        if (MappingUtil.isForgeParams(entry.getParams())) {
+            String params = MappingUtil.mapDesc(entry.getParams(), mappings);
             entry.setParams(params);
         }
-        if (MapperUtil.isForgeParams(entry.getParams())) {
-            String params = MapperUtil.mapDesc(entry.getReturnType(), mappings);
+        if (MappingUtil.isForgeParams(entry.getParams())) {
+            String params = MappingUtil.mapDesc(entry.getReturnType(), mappings);
             entry.setReturnType(params);
         }
 

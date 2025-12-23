@@ -10,12 +10,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class LoaderManager {
 
-    public static final Map<String, RegisterClassLoader> registerLoaders = new ConcurrentHashMap<>();
+    public static final Map<String, ClassLoader> registerLoaders = new ConcurrentHashMap<>();
 
 
-    public static ClassLoader createURLClassLoader(MyLoader name, List<Path> jarPath, ClassLoader parent) {
+    public static ClassLoader registerClassLoader(MyLoader name, List<Path> jarPath, ClassLoader parent) {
         try {
-
             URL[] urls = jarPath.stream()
                     .map(path -> {
                         try {
@@ -25,9 +24,9 @@ public class LoaderManager {
                         }
                     })
                     .toArray(URL[]::new);
-            URLClassLoader bkLoader = new URLClassLoader(urls, parent);
-            setClassLoader(name, bkLoader);
-            return bkLoader;
+            URLClassLoader loader = new URLClassLoader(urls, parent);
+            registerClassLoader(name, loader);
+            return loader;
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -35,14 +34,18 @@ public class LoaderManager {
     }
 
 
-    public static void setClassLoader(MyLoader name, ClassLoader classLoader) {
-        registerLoaders.put(name.getName(), new RegisterClassLoader(classLoader));
+    public static void registerClassLoader(MyLoader name, ClassLoader classLoader) {
+        registerLoaders.put(name.getName(), classLoader);
     }
 
     public static ClassLoader getClassLoader(MyLoader loader) {
-        return registerLoaders.computeIfAbsent(loader.getName(),
-                name -> new RegisterClassLoader(ClassLoader.getSystemClassLoader())
-        ).getClassLoader();
+        return getClassLoader(loader.getName());
+    }
+
+    public static ClassLoader getClassLoader(String loaderName) {
+        return registerLoaders.computeIfAbsent(loaderName,
+                name -> ClassLoader.getSystemClassLoader()
+        );
 
     }
 

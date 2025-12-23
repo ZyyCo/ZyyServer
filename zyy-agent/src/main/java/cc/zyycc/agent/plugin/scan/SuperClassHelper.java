@@ -1,122 +1,272 @@
-package cc.zyycc.agent.plugin;
+package cc.zyycc.agent.plugin.scan;
 
 
+import cc.zyycc.common.VersionInfo;
 import cc.zyycc.remap.MappingHelper;
+import cc.zyycc.util.NmsDetector;
 
 import java.util.Set;
+
 
 public class SuperClassHelper {
 
 
-    public static boolean hasDeclaredFields(String className, String field) {
-        String cur = className;
-
-        while (cur != null) {
-            Set<String> fields = SuperClassPreloader.fieldsCaches.get(cur);
-            if (fields != null && fields.contains(field)) {
-                return true;
-            }
-            cur = SuperClassPreloader.CACHE_CLASS_CACHE.get(cur);
+    private static String getSuperPluginClass(String className) {
+        if (NmsDetector.isBkNms(className)) {
+            return null;
         }
-        return false;
+        className = JarScanInfo.getSuperClass(className);
+        if (NmsDetector.isBkNms(className)) {
+            return null;
+        }
+        return className;
     }
 
     /**
-     * 小心接口
-     *
-     * @param className
-     * @param method
-     * @param desc
-     * @return
+     * 获取字段的源类
+     * nms类需另外remap处理
      */
+    public static String getFieldClassSource(String className, String field) {
+        String superNMSClass = getSuperNMSClass(className);
+        if (superNMSClass == null) {//noSuperNMSclass
+            return className;
+        }
+        Set<String> set = JarScanInfo.getFields(className);
+        if (set == null) {
+            String superPluginClass = className;
+            while (true) {
+                superPluginClass = getSuperPluginClass(superPluginClass);
+                if (superPluginClass == null) {//superClass is nmsClass?
+                    return superNMSClass;
+                }
+                Set<String> fields = JarScanInfo.getFields(superPluginClass);
+                if (fields != null && fields.contains(field)) {
+                    return superPluginClass;
+                }
+            }
+        }
+        return set.contains(field) ? className : superNMSClass;
+    }
+
+
+    public static boolean pluginClassHasDeclaredField(String className, String field) {
+        if (getSuperNMSClass(className) == null) {//noSuperNMSclass
+            return true;
+        }
+        Set<String> set = JarScanInfo.getFields(className);
+        if (set == null) {
+            String superPluginClass = className;
+            while (true) {
+                superPluginClass = getSuperPluginClass(superPluginClass);
+                if (superPluginClass == null) {//superClass is nmsClass?
+                    return true;
+                }
+                Set<String> fields = JarScanInfo.getFields(superPluginClass);
+                if (fields != null && fields.contains(field)) {
+                    return true;
+                }
+            }
+        }
+        return set.contains(field);
+    }
+
+
+    public static String getMethodClassSource(String className, String method, String desc) {
+        String superNMSClass = getSuperNMSClass(className);
+        if (superNMSClass == null) {//noSuperNMSclass
+            return className;
+        }
+        Set<String> set = JarScanInfo.getMethods(className);
+        if (set == null) {
+            return superNMSClass;
+        }
+
+        return set.contains(method + '#' + desc) ? className : superNMSClass;
+    }
+
+
     public static boolean hasDeclaredMethods(String className, String method, String desc) {
         String cur = className;
         while (cur != null) {
-            Set<String> methods = SuperClassPreloader.methodsCaches.get(cur);
-            if (methods != null && methods.contains(method + "#" + desc)) {
+            Set<String> methods = JarScanInfo.getMethods(cur);
+            if (methods != null && methods.contains(method + '#' + desc)) {
                 return true;
             }
-            cur = SuperClassPreloader.CACHE_CLASS_CACHE.get(cur);
+            cur = JarScanInfo.getSuperClass(cur);
         }
         return false;
     }
 
-    public static String getOrSuperClass(String className) {
-        if (className.startsWith("net/minecraft/server/v1_")) {
-            return className;
-        }
+
+    public static boolean hasSuperNMSClass(String className) {
         String search = className;
         while (true) {
-            String superClass = SuperClassPreloader.CACHE_CLASS_CACHE.get(search);
-            if (superClass == null) {
-                return null;
-            }
-            if (superClass.startsWith("net/minecraft/server/v1_")) {
-                return superClass;
-            } else {
-                search = superClass;
-            }
-        }
-    }
-
-
-    public static boolean hasNMSClass(String className) {
-        String search = className;
-        while (true) {
-            String superClass = SuperClassPreloader.CACHE_CLASS_CACHE.get(search);
+            String superClass = JarScanInfo.getSuperClass(search);
             if (superClass == null) {
                 return false;
             }
-            if (superClass.startsWith("net/minecraft/server/v1_")) {
+            if (superClass.startsWith("net/minecraft/server/" + VersionInfo.BUKKIT_VERSION)) {
                 return true;
             } else {
                 search = superClass;
             }
-        }
-    }
-
-    public static void checkOrRemove(String className) {
-        if (!hasNMSClass(className)) {
-            SuperClassPreloader.CACHE_CLASS_CACHE.remove(className);
-            SuperClassPreloader.fieldsCaches.remove(className);
-            SuperClassPreloader.methodsCaches.remove(className);
         }
     }
 
 
     public static String getSuperClass(String className) {
-        return SuperClassPreloader.CACHE_CLASS_CACHE.get(className);
+        String superClass = JarScanInfo.getSuperClass(className);
+        if (superClass == null || NmsDetector.isBkNms(className)) {
+            return null;
+        }
+        return superClass;
     }
 
-    public static void checkOrRemove2(String className) {
-        Set<String> fields = SuperClassPreloader.fieldsCaches.get(className);
-        if (fields != null) {
-            fields.removeIf(field -> !MappingHelper.hasMappingField(field));
+    public static void checkOrRemove(String className) {
+        if (!hasSuperNMSClass(className)) {
+            JarScanInfo.remove(className);
         }
+    }
 
-        Set<String> methodDescs = SuperClassPreloader.methodsCaches.get(className);
-//
-//        for (String methodDesc : methodDescs) {
-//            if (MappingHelper.hasMappingMethod(methodDesc)) {
-//                methodDescs.remove(methodDesc);
-//            }
-//        }
+    public static String getSuperNMSClass(String className) {
+        if (NmsDetector.isBkNms(className)) {
+            return className;
+        }
+        String superClass = className;
+        while (true) {
+            superClass = JarScanInfo.getSuperClass(superClass);
+            if (superClass == null) {
+                return null;
+            }
+            if (NmsDetector.isBkNms(superClass)) {
+                return superClass;
+            }
+        }
+    }
 
+    public static void checkOrRemove1(String className) {
+        Set<String> fields = JarScanInfo.getFields(className);
+        if (fields != null) {
+            fields.removeIf(field -> {
+                if (!MappingHelper.hasMappingField(field)) {//混淆表没有nms字段百分百是自己的字段
+                    return false;
+                }
+                String superClass = className;
+                while (true) {
+                    superClass = JarScanInfo.getSuperClass(superClass);
+                    if (superClass == null) {
+                        return false;
+                    }
+                    Set<String> superFields;
+                    if (NmsDetector.isBkNms(superClass)) {
+                        superFields = MappingHelper.getBKClassFields(superClass);
+                    } else {
+                        superFields = JarScanInfo.getFields(superClass);
+                    }
+                    if (superFields == null) {
+                        return true;
+                    }
+                    for (String superField : superFields) {
+                        if (superField.equals(field)) {
+                            return false;
+                        }
+                    }
+                    if (NmsDetector.isBkNms(className)) {
+                        return false;
+                    }
+                }
+            });
+        }
+        Set<String> methodDescs = JarScanInfo.getMethods(className);
         if (methodDescs != null) {
-            methodDescs.removeIf(MappingHelper::hasMappingMethod);
+            methodDescs.removeIf(methodDesc -> {
+                if (!MappingHelper.hasMappingMethod(methodDesc)) {
+                    return false;
+                } else {
+                    String superClass = className;
+                    while (true) {
+                        superClass = JarScanInfo.getSuperClass(superClass);
+                        if (superClass == null) {
+                            return false;
+                        }
+                        if (!NmsDetector.isBkNms(superClass)) {
+                            Set<String> superMethods = JarScanInfo.getMethods(superClass);
+                            if (superMethods.contains(methodDesc)) {
+                                return true;
+                            }
+                        } else {
+                            return true;
+                        }
+                    }
+                }
+            });
         }
         if (fields == null || fields.isEmpty()) {
-            SuperClassPreloader.fieldsCaches.remove(className);
+            JarScanInfo.removeField(className);
         }
         if (methodDescs == null || methodDescs.isEmpty()) {
-            SuperClassPreloader.methodsCaches.remove(className);
+            JarScanInfo.removeMethod(className);
         }
-//        boolean empty = (fields == null || fields.isEmpty())
-//                && (methods == null || methods.isEmpty());
-//        if (empty) {
-//            SuperClassPreloader.fieldsCaches.remove(className);
-//            SuperClassPreloader.methodsCaches.remove(className);
+
+
+    }
+
+
+//    public static void checkOrRemove2(String className) {
+//
+//        Set<String> fields = JarScanInfo.getFields(className);
+//        if (fields != null) {
+//            fields.removeIf(field -> {
+//                if (!MappingHelper.hasMappingField(field)) {//混淆表没有nms字段百分百是自己的字段
+//                    return false;
+//                }
+//                String superClass = className;
+//                while (true) {
+//                    superClass = JarScanInfo.getSuperClass(superClass);
+//                    if (superClass == null) {
+//                        return false;
+//                    }
+//                    Set<String> superFields;
+//                    if (NmsDetector.isBkNms(superClass)) {
+//                        superFields = MappingHelper.getBKClassFields(superClass);
+//                    } else {
+//                        superFields = JarScanInfo.getFields(superClass);
+//                    }
+//                    if (superFields == null) {
+//                        //都是些bukkit其他版本的nms类,删除即可
+//                        return true;
+//                    }
+//                    for (String superField : superFields) {
+//                        if (superField.equals(field)) {
+//                            return false;
+//                        }
+//                    }
+//                    if (NmsDetector.isBkNms(className)) {
+//                        return false;
+//                    }
+//                }
+//            });
 //        }
+//
+//        Set<String> methodDescs = JarScanInfo.getMethods(className);
+//        if (methodDescs != null) {
+//            methodDescs.removeIf(MappingHelper::hasMappingMethod);
+//        }
+//        if (fields == null || fields.isEmpty()) {
+//            JarScanInfo.getFieldsCache().remove(className);
+//        }
+//        if (methodDescs == null || methodDescs.isEmpty()) {
+//            JarScanInfo.getMethodsCache().remove(className);
+//        }
+//    }
+
+
+    public static Set<String> getParentClassMethods(String className) {
+        String superClass = JarScanInfo.getSuperClass(className);
+        if (superClass == null) {
+            return null;
+        }
+        return JarScanInfo.getFields(superClass);
     }
 
 }

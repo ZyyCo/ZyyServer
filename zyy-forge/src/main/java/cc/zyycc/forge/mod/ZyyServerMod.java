@@ -1,14 +1,12 @@
-package cc.zyycc.bk.mod;
+package cc.zyycc.forge.mod;
 
 
-import cc.zyycc.bk.BKMain;
+import cc.zyycc.common.VersionInfo;
+import cc.zyycc.common.util.FileManager;
 import net.minecraftforge.fml.loading.moddiscovery.AbstractJarFileLocator;
 import net.minecraftforge.fml.loading.moddiscovery.ModFile;
 import net.minecraftforge.forgespi.locating.IModFile;
 
-
-import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -19,17 +17,14 @@ import java.util.*;
 public class ZyyServerMod extends AbstractJarFileLocator {
 
     private final IModFile modFile;
-    private final  Path modPath;
 
     public ZyyServerMod() {
-        try {
-             modPath = Paths.get(BKMain.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-            FileSystem fileSystem = FileSystems.newFileSystem(modPath, BKMain.class.getClassLoader());
-            this.modFile = ModFile.newFMLInstance(modPath, this);
-            this.modJars.put(modFile, fileSystem);
-        } catch (URISyntaxException | IOException e) {
-            throw new RuntimeException(e);
-        }
+        // modPath = Paths.get(MainForge.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+
+        Path cacheJar = FileManager.getCacheJar("bkao.jar");
+        this.modFile = ModFile.newFMLInstance(cacheJar, this);
+        this.modJars.put(modFile, createFileSystem(modFile));
+
     }
 
     @Override
@@ -40,7 +35,7 @@ public class ZyyServerMod extends AbstractJarFileLocator {
     @Override
     public Path findPath(IModFile modFile, String... path) {
         FileSystem fs = modJars.get(modFile);
-        if (fs == null) throw new IllegalStateException("草No FileSystem for modFile");
+
         return fs.getPath("", path);
     }
 

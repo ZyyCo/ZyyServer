@@ -1,4 +1,4 @@
-package cc.zyycc.common.util.asm;
+package cc.zyycc.common.asm;
 
 public final class HookResult {
     public final boolean cancelled;

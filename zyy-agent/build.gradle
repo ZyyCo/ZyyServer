@@ -1,6 +1,10 @@
 plugins {
     id 'java'
 }
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
 
 group = 'cc.zyycc'
 version = '1.0-SNAPSHOT'
@@ -9,20 +13,19 @@ repositories {
     mavenCentral()
 }
 
-jar {
-    manifest {
-        attributes(
-                'Premain-Class': 'cc.zyycc.agent.ClasspathAgent',
-                'Agent-Class': 'cc.zyycc.agent.ClasspathAgent',
-                'Can-Redefine-Classes': 'true',
-                'Can-Retransform-Classes': 'true'
-        )
-    }
+configurations {
+    implementation.extendsFrom(runtimeLibs)
 }
+def extraLibs = [
+        "net.md-5:SpecialSource:1.11.5", "commons-lang:commons-lang:2.6"]
+
 dependencies {
     implementation 'org.javassist:javassist:3.29.2-GA'
-    implementation 'org.ow2.asm:asm:9.8'
-    implementation 'org.ow2.asm:asm-tree:9.8'
+    implementation 'org.ow2.asm:asm:9.1'
+
     implementation project(':zyy-core')
-    implementation project(':zyy-common')
+    implementation project(':zyy-bridge')
+    compileOnly project(':zyy-common')
+    extraLibs.forEach { lib -> compileOnly(lib) }
 }
+

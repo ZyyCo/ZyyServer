@@ -1,116 +1,161 @@
 package cc.zyycc.agent.transformer;
 
-import cc.zyycc.agent.ClasspathAgent;
-import cc.zyycc.agent.plugin.FiledRemapper;
-
-import cc.zyycc.agent.plugin.PluginRemapper;
-import cc.zyycc.common.VersionInfo;
+import cc.zyycc.agent.transformer.scan.ReflectionPool;
+import cc.zyycc.bridge.BridgeManager;
 import org.objectweb.asm.*;
-import org.objectweb.asm.commons.ClassRemapper;
 
-
+import java.io.File;
 import java.lang.instrument.ClassFileTransformer;
-
+import java.security.CodeSource;
 import java.security.ProtectionDomain;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-import static org.objectweb.asm.Opcodes.ASM9;
-
-public class AAATransformer implements ClassFileTransformer {
-
-    public AAATransformer() {
-
-    }
+import static cc.zyycc.agent.transformer.TransformerProvider.loaderToPlugin;
+import static org.objectweb.asm.ClassWriter.COMPUTE_MAXS;
 
 
-    // 你可记录允许的 ClassLoader 简名，或直接用 instanceof 判断
-
+public class FieldSignatureTransformer implements ClassFileTransformer {
 
     @Override
     public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) {
 
-        if (!className.equals("org/bukkit/craftbukkit/" + VersionInfo.BUKKIT_VERSION + "/CraftWorld")
-        && !className.equals("org/bukkit/craftbukkit/" + VersionInfo.BUKKIT_VERSION + "/CraftServer")) {
+        if (!"org.bukkit.plugin.java.PluginClassLoader".equals(loader.getClass().getName())) {
+            return null;
+        }
+        if (!ReflectionPool.containsReflection(classfileBuffer)) {
             return null;
         }
 
+        String pluginName = loaderToPlugin.get(loader);
+        if (pluginName == null) {
+            pluginName = extractPluginName(protectionDomain);
+            loaderToPlugin.put(loader, pluginName);
+            BridgeManager.LOADER_REGISTRY.put(pluginName, loader);
+        }
         try {
+            // ClasspathAgent.dump(className, classfileBuffer);
+
             ClassReader cr = new ClassReader(classfileBuffer);
-            // 写法1：不改栈图（更快，不动 frames）
-            ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS) {
+            ClassWriter cw = new ClassWriter(COMPUTE_MAXS) {
                 @Override
                 protected String getCommonSuperClass(String t1, String t2) {
                     return "java/lang/Object"; // 防止 ASM 去加载外部类
                 }
             };
 
-
-//            ClassVisitor cv = new ClassRemapper(cw, new FiledRemapper());
-
-            ClassVisitor cv = new ClassVisitor(ASM9, cw) {
-
+            String finalPluginName = pluginName;
+            ClassVisitor cv = new ClassVisitor(Opcodes.ASM9, cw) {
                 @Override
                 public MethodVisitor visitMethod(int access, String name, String descriptor,
                                                  String signature, String[] exceptions) {
                     MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
                     if (mv == null) return null;
 
-                    return new MethodVisitor(ASM9, mv) {
-                        @Override
-                        public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
-                            if (descriptor.equals("Lnet/minecraft/world/storage/ServerWorldInfo;")) {
-                                descriptor = "Lnet/minecraft/world/storage/IServerWorldInfo;";
-                            }
-                            //字段里的字段
-                            if(owner.equals("net/minecraft/world/storage/ServerWorldInfo")){
-                                owner = "net/minecraft/world/storage/IServerWorldInfo";
-                            }
-                            super.visitFieldInsn(opcode, owner, name, descriptor);
-                        }
+                    return new MethodVisitor(Opcodes.ASM9, mv) {
+
+
 
                         @Override
                         public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean isInterface) {
-                            if (owner.equals("net/minecraft/world/storage/ServerWorldInfo")
-                                    && (name.startsWith("func") || name.startsWith("field"))
-                                  ){
-                                opcode = Opcodes.INVOKEINTERFACE; // 强制切换到接口调用
-                                owner = "net/minecraft/world/storage/IServerWorldInfo";
-                                isInterface = true;
+                            if (opcode == Opcodes.INVOKEVIRTUAL
+                                    && name.equals("loadClass")
+                                    && owner.equals("java/lang/ClassLoader")
+                                    && desc.equals("(Ljava/lang/String;)Ljava/lang/Class;")) {
+                                super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                                        "cc/zyycc/common/bridge/SafeClassForNameBridge",
+                                        "loadClass",
+                                        "(Ljava/lang/ClassLoader;Ljava/lang/String;)Ljava/lang/Class;", false);
+                                return;
                             }
-                            super.visitMethodInsn(opcode, owner, name, desc, isInterface);
+                            if (opcode == Opcodes.INVOKESTATIC
+                                    && "java/lang/Class".equals(owner)
+                                    && "forName".equals(name)) {
+
+                                if (desc.equals("(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;")) {
+                                    super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                                            "cc/zyycc/common/bridge/SafeClassForNameBridge",
+                                            "forName",
+                                            desc,
+                                            false);
+                                    return;
+                                }
+                                // 一参数版本：forName(String)
+                                else if (!desc.equals("(Ljava/lang/String;)Ljava/lang/Class;")) {
+                                    super.visitMethodInsn(opcode, owner, name, desc, isInterface);
+                                    return;
+                                }
+                                // 插入新方法调用
+                                super.visitLdcInsn(finalPluginName);
+                                super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                                        "cc/zyycc/common/bridge/SafeClassForNameBridge",
+                                        "forName",
+                                        "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Class;",
+                                        false);
+                                return;
+                            }
+
+                            //getMethod
+                            if (opcode == Opcodes.INVOKEVIRTUAL
+                                    && (name.equals("getMethod") || name.equals("getDeclaredMethod"))
+                                    && owner.equals("java/lang/Class")) {
+
+                                super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                                        "cc/zyycc/common/bridge/SafeMethodBridge",
+                                        "getMethod", // getMethod 或 getDeclaredMethod
+                                        "(Ljava/lang/Class;Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;",
+                                        false);
+                            } else if (opcode == Opcodes.INVOKEVIRTUAL
+                                    && (name.equals("getField") || name.equals("getDeclaredField"))
+                                    && desc.equals("(Ljava/lang/String;)Ljava/lang/reflect/Field;")
+                                    && owner.equals("java/lang/Class")) {
+                                super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                                        "cc/zyycc/common/bridge/SafeFiledBridge",
+                                        name, // getField 或 getDeclaredField
+                                        "(Ljava/lang/Class;Ljava/lang/String;)Ljava/lang/reflect/Field;",
+                                        false);
+                            } else {
+                                super.visitMethodInsn(opcode, owner, name, desc, isInterface);
+                            }
                         }
 
-//                        @Override
-//                        public void visitTypeInsn(int opcode, String type) {
-//                            if (type.equals("net/minecraft/world/storage/ServerWorldInfo")) {
-//                                type = "net/minecraft/world/storage/IServerWorldInfo";
-//                            }
-//                            super.visitTypeInsn(opcode, type);
-//                        }
 
+//                        @Override
+//                        public void visitMaxs(int maxStack, int maxLocals) {
+//                            System.out.println(className);
+//                            super.visitMaxs(maxStack, maxLocals + localVarIndex);
+//                        }
                     };
                 }
+
             };
 
 
-            // 建议：SKIP_DEBUG 可以略过局部变量名/行号，加速；不建议 SKIP_FRAMES（除非确实踢 verifier）
             cr.accept(cv, 0);
-
-            byte[] bytes = cw.toByteArray();
-
-            ClasspathAgent.dump(className, bytes);
-
-
-            return bytes;
+            return cw.toByteArray();
         } catch (Throwable t) {
             t.printStackTrace();
-            // 返回 null 让 JVM 用原字节码（保守）
             return null;
         }
     }
 
+    private static String extractPluginName(ProtectionDomain pd) {
+        try {
+            CodeSource src = pd.getCodeSource();
+            if (src == null || src.getLocation() == null) {
+                return "unknown";
+            }
+            String path = src.getLocation().getPath();
+
+            String fileName = new File(path).getName();
+            // 去掉版本后缀
+            int dashIndex = fileName.indexOf('-');
+            if (dashIndex != -1) {
+                fileName = fileName.substring(0, dashIndex);
+            }
+            return fileName.replace(".jar", "");
+        } catch (Throwable e) {
+            return "unknown";
+        }
+    }
 
 }
 

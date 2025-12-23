@@ -1,55 +1,62 @@
-package cc.zyycc.agent.enhancer.plugin;
+package cc.zyycc.agent.plugin;
 
 
 import org.objectweb.asm.*;
 import org.objectweb.asm.commons.ClassRemapper;
+import org.objectweb.asm.commons.MethodRemapper;
+
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DynamicRemapper extends ClassRemapper {
 
-//    private final SimpleRemapper remapper;
 
+    public DynamicRemapper(ClassVisitor cv, String currentClassName, PluginRemapper remapper) {
+        super(Opcodes.ASM9, cv, remapper);
+        this.className = currentClassName;
 
-
-    public DynamicRemapper(ClassVisitor cv, String className, SimpleRemapper remapper) {
-        super(Opcodes.ASM9, cv, new PluginRemapper(remapper));
-        this.className = className;
     }
 
     @Override
     public void visit(int version, int access, String name, String signature,
                       String superName, String[] interfaces) {
-        System.out.println("[Remap] visit " + name + " extends " + superName);
-        super.visit(version, access, name, signature, superName, interfaces);
+
+        if (superName != null) {
+            superName = remapper.mapType(superName);
+        }
+        // remap 接口
+        String[] mappedInterfaces = interfaces != null
+                ? remapper.mapTypes(interfaces)
+                : null;
+
+        // remap 签名
+        String mappedSignature = signature != null
+                ? remapper.mapSignature(signature, false)
+                : null;
+
+        super.visit(
+                version,
+                access,
+                name,
+                mappedSignature,
+                superName,
+                mappedInterfaces
+        );
+
+
+//        super.visit(version, access, name, signature, superName, interfaces);
     }
+
 
     @Override
-    public void visitAttribute(Attribute attr) {
-        if (attr != null && attr.type != null && attr.type.contains("net/minecraft")) {
-            System.out.println("[Cleaner] Unknown attr contains NMS: " + attr.type);
-        }
-        super.visitAttribute(attr);
+    public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
+        return super.visitMethod(access, name, descriptor, signature, exceptions);
     }
 
-
-//    @Override
-//    public void visit(int version, int access, String name, String signature,
-//                      String superName, String[] interfaces) {
-//        System.out.println("[Remap] visit " + name + " extends " + superName);
-//        name = remapper.map(name);
-//        superName = remapper.map(superName);
-//        signature = remapper.mapDesc(signature);
-//        checkLeak("visit name", name);
-//        checkLeak("visit Super", superName);
-//        checkLeak("visit signature", signature);
-//        for (String anInterface : interfaces) {
-//            checkLeak("visit name", anInterface);
-//        }
-//        super.visit(version, access,
-//                name,
-//                signature == null ? null : signature,
-//                superName,
-//                remapArray(interfaces));
-//    }
+    protected MethodVisitor createMethodRemapper(final MethodVisitor methodVisitor) {
+        return new PluginMethodRemapper(api, methodVisitor, remapper);
+    }
 
 
 //    //内部类
@@ -73,7 +80,6 @@ public class DynamicRemapper extends ClassRemapper {
 //        desc = remapper.mapDesc(desc);
 //        signature = remapper.map(signature);
 //        checkLeak("visitField desc:", desc);
-//        checkLeak("visitField name:", name);
 //        checkLeak("visitField signature:", signature);
 //
 //        if (value instanceof String) {
@@ -262,7 +268,8 @@ public class DynamicRemapper extends ClassRemapper {
 //
 //            @Override
 //            public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
-////                System.out.println("visitTryCatchBlock" + type);
+
+    /// /                System.out.println("visitTryCatchBlock" + type);
 //                type = remapper.map(type);
 //                checkLeak("visitTryCatchBlock type:", type);
 //                super.visitTryCatchBlock(start, end, handler, type);
@@ -347,7 +354,6 @@ public class DynamicRemapper extends ClassRemapper {
 //        }
 //        return newArr;
 //    }
-
     private void checkLeak(String context, String s) {
         if (s != null && (s.contains("net/minecraft/server/v1_"))) {
             System.out.println("[RemapLeak@" + context + "] " + s);

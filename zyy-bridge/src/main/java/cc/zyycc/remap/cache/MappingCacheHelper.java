@@ -1,13 +1,13 @@
-package cc.zyycc.common.mapper.cache;
+package cc.zyycc.remap.cache;
 
-import cc.zyycc.common.mapper.MappingEntry;
+import cc.zyycc.remap.BaseEntry;
 
 public class MappingCacheHelper {
-    public static <C extends MappingEntry> MappingCacheTable getCache(MappingCache<C> cache, C entry) {
-        C successCache = cache.getSuccessCache(entry);
+    public static <C extends BaseEntry> MappingCacheTable getCache(MappingCache<C> cache, C entry) {
+        BaseEntry successCache = cache.getSuccessCache(entry);
         if (successCache == null) {
-            C failCache = cache.getFailCache(entry);
-            if (failCache != null) {
+            boolean failCache = cache.hasFailCache(entry);
+            if (failCache) {
                 return MappingCacheTable.createFailCacheTable(entry);
             }
             return MappingCacheTable.empty();
@@ -18,13 +18,5 @@ public class MappingCacheHelper {
 
 
 
-
-    public static <C extends MappingEntry> void addSuccessCache(MappingCache<C> cache, C originalKey, C newEntry) {
-        cache.addSuccessCache(originalKey, newEntry);
-    }
-
-    public static <C extends MappingEntry> void addFailCache(MappingCache<C> cache, C originalKey) {
-        cache.addFailCache(originalKey);
-    }
 
 }

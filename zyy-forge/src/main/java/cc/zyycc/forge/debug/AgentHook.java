@@ -6,6 +6,9 @@ import cc.zyycc.forge.MainForge;
 import cc.zyycc.forge.mod.MyMinecraftLocator;
 import cpw.mods.modlauncher.serviceapi.ILaunchPluginService;
 import net.minecraftforge.fml.loading.moddiscovery.ModDiscoverer;
+import net.minecraftforge.fml.loading.moddiscovery.ModFile;
+import net.minecraftforge.fml.loading.moddiscovery.ModFileParser;
+import net.minecraftforge.forgespi.locating.IModFile;
 import net.minecraftforge.forgespi.locating.IModLocator;
 
 import javax.annotation.Untainted;
@@ -13,6 +16,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
@@ -21,15 +25,10 @@ public class AgentHook {
 
     public static void error(Object obj) {
 
-
-
     }
 
 
     public static void saveDiscoverer(Object obj) {
-        System.out.println("加载器agentHook" + AgentHook.class.getClassLoader());
-        System.out.println("加载器MainForge" + MainForge.class.getClassLoader() + "父类加载器" + MainForge.class.getClassLoader().getParent());
-        System.out.println("加载器br" + BridgeHolder.getInstance().getClassLoader());
         modDiscoverer = (ModDiscoverer) obj;
         dumpLocatorList();
     }
@@ -37,7 +36,6 @@ public class AgentHook {
 
     public static void dumpLocatorList() {
         try {
-
 
 
             Object discoverer = AgentHook.modDiscoverer;
@@ -62,27 +60,45 @@ public class AgentHook {
 
             Field field = discoverer.getClass().getDeclaredField("locatorList");
             field.setAccessible(true);
-            // field.set(discoverer, BridgeHolder.SPI_BRIDGE.getClassLoader());
             List<IModLocator> locatorList = (List<IModLocator>) field.get(discoverer);
 
             Iterator<IModLocator> iterator = locatorList.iterator();
 
             while (iterator.hasNext()) {
                 IModLocator locator = iterator.next();
-                System.out.println("locator:" + locator);
-                System.out.println("name" + locator.name());
-                ClassLoader classLoader = locator.getClass().getClassLoader();
-                System.out.println("classLoader:" + classLoader);
-                System.out.println("className:" + locator.getClass().getName());
-                System.out.println("package:" + locator.getClass().getPackage());
-//
                 if (locator.name().equals("minecraft")) {
                     iterator.remove();
                 }
             }
             MyMinecraftLocator myMinecraftLocator = new MyMinecraftLocator();
             locatorList.add(myMinecraftLocator);
+            IModFile modFile = null;
+            for (IModLocator iModLocator : locatorList) {
+                System.out.println("locator:" + iModLocator +
+                        "classLoader:" + iModLocator.getClass().getClassLoader() +
+                        "className:" + iModLocator.getClass().getName() + "package:" + iModLocator.getClass().getPackage());
+                System.out.println("name" + iModLocator.name());
+                List<IModFile> iModFiles = iModLocator.scanMods();
 
+                if (iModLocator.name().equals("zyyserver")) {
+                    modFile = iModFiles.get(0);
+                }
+                for (IModFile iModFile : iModFiles) {
+                    System.out.println("--模组路径:" + iModFile);
+                    System.out.println("--modFile.getFilePath:" + iModFile.getFilePath());
+                    if (iModFile.getType() == IModFile.Type.MOD) {
+                        System.out.println("类型模组");
+                    }
+                    System.out.println("--模组.getLocator:" + iModFile.getLocator());
+
+                    System.out.println("--modFile.getModFileInfo:" + iModFile.getModFileInfo());
+                    System.out.println("--------------------------------------------------------");
+                }
+            }
+
+//            IModLocator locator = modFile.getLocator();
+//            Path modsjson = locator.findPath(modFile, new String[]{"META-INF", "mods.toml"});
+//            System.out.println("哈哈哈modsjson:" + modsjson);
 
         } catch (Exception e) {
             e.printStackTrace();

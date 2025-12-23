@@ -1,33 +1,55 @@
 package cc.zyycc.agent.inject;
 
-import cc.zyycc.agent.VarCapture;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 
+import java.util.List;
 import java.util.Map;
 
-public class MethodIndexCapture implements VarCapture {
-    @Override
-    public void scanField(String name, String descriptor) {
+
+public class MethodParaIndexCapture {
+
+    private String[] name;
+    private int[] index;
+
+    public MethodParaIndexCapture(int... index) {
+        this.index = index;
 
     }
 
-    @Override
-    public Map<String, String> getCollectedFields() {
-        return null;
+    public MethodParaIndexCapture(String... name) {
+        this.name = name;
     }
 
-    @Override
-    public void load(MethodVisitor mv, String currentClassName) {
 
-    }
+    public String load(MethodVisitor mv, Map<Integer, String> methodArgDesc) {
+        StringBuilder sb = new StringBuilder();
+        if (!methodArgDesc.isEmpty()) {
+            for (int i : index) {
+                mv.visitVarInsn(Opcodes.ALOAD, i);
+                String s = methodArgDesc.get(i);
+                if (s == null) {
+                    throw new RuntimeException("methodArgDesc is empty");
+                }
+                sb.append(s);
 
-    @Override
-    public int maxStack() {
-        return 0;
-    }
+            }
+        }
+//        if (name != null) {
+//            String[] split = descriptor.substring(descriptor.indexOf("(") + 1, descriptor.indexOf(")")).trim().split(";");
+//            for (String captureName : name) {
+//                Type[] argumentTypes = Type.getArgumentTypes(descriptor);
+//                for (int i = 0; i < argumentTypes.length; i++) {
+//                    if (argumentTypes[i].getClassName().equals(captureName)) {
+//                        mv.visitVarInsn(Opcodes.ALOAD, i + 1);
+//                        sb.append(split[i]).append(";");
+//                    }
+//                }
+//            }
+//
+//        }
 
-    @Override
-    public String getDesc() {
-        return null;
+        return sb.toString();
     }
 }

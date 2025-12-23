@@ -1,4 +1,4 @@
-package cc.zyycc.agent.enhancer.visitor;
+package cc.zyycc.agent.inject.visitCode;
 
 import cc.zyycc.agent.inject.visitCode.MyMethodVisitor;
 import cc.zyycc.agent.inject.visitCode.InjectVisitCode;
@@ -10,16 +10,10 @@ import java.util.function.Consumer;
 public class ModDiscovererCode extends InjectVisitCode {
     @Override
     public Consumer<MethodVisitor> visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface, MyMethodVisitor context) {
-        if (!(
-                name.equals("add"))
-        ) {
+        if (!(name.equals("add"))) {
             return mv -> mv.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
         }
         return mv -> {
-
-
-          //  mv.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
-
 
             mv.visitVarInsn(Opcodes.ALOAD, 0);
             // 调用 Hook.saveDiscoverer(Object)
@@ -32,10 +26,12 @@ public class ModDiscovererCode extends InjectVisitCode {
             );
 
 
-
         };
     }
 
 
-
+    @Override
+    public boolean needFrame() {
+        return false;
+    }
 }

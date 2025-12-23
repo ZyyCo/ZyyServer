@@ -1,4 +1,10 @@
 package cc.zyycc.bk.bridge.world;
 
-public class WorldSettingsBridge {
+import net.minecraft.world.World;
+
+public interface WorldSettingsBridge {
+
+    String bridge$getBKWorldName(World world);
+
+    void bridge$setWorldName(String name);
 }

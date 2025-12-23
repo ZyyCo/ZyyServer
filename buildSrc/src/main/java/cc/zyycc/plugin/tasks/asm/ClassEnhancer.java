@@ -1,4 +1,4 @@
-package cc.zyycc.gradle.api;
+package cc.zyycc.plugin.tasks.asm;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;

@@ -1,4 +1,4 @@
-package cc.zyycc.installer;
+package cc.zyycc.common.util;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -11,7 +11,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Downloader {
+public class DownloaderLib {
 
 
     public static void downloadJar(LibraryHandle lh) throws IOException {
@@ -31,6 +31,7 @@ public class Downloader {
             throw new RuntimeException(e);
         }
     }
+
 
     public static List<Path> downloadExtraMavenJar(String[] libs) throws IOException {
         List<Path> allLibPaths = new ArrayList<>();

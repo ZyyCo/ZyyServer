@@ -1,14 +1,27 @@
-package cc.zyycc.bk.mixin.mc.inventory.container.inventory;
+package cc.zyycc.bk.bridge.inventory;
 
+import net.minecraft.item.ItemStack;
 import org.bukkit.craftbukkit.v1_16_R3.entity.CraftHumanEntity;
+import org.bukkit.entity.HumanEntity;
 import org.spongepowered.asm.mixin.Mixin;
 
-@Mixin(net.minecraft.inventory.IInventory.class)
-public interface IInventoryMixin {
+import java.util.ArrayList;
+import java.util.List;
+
+
+public interface IInventoryBridge {
 
     default void onOpen(CraftHumanEntity who) {
     }
     default void onClose(CraftHumanEntity who) {
+    }
+
+    default List<HumanEntity> getViewers() {
+        return null;
+    }
+
+    default List<ItemStack> getContents() {
+        return new ArrayList<>();
     }
 
 }

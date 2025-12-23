@@ -1,2 +1,9 @@
-package cc.zyycc.agent.inject.method;public class InjectTarget {
+package cc.zyycc.agent.inject.method;
+
+public interface InjectTarget {
+    int getPoint();
+
+    boolean matches(InsnContext ctx);
+
+    int index();
 }

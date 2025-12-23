@@ -6,7 +6,8 @@ import org.objectweb.asm.Opcodes;
 
 import java.util.function.Consumer;
 
-public class JavaPluginLoaderReflection extends InjectVisitCode {
+public class PluginLoaderReflection extends InjectVisitCode {
+    private int index;
 
 
     @Override
@@ -27,9 +28,10 @@ public class JavaPluginLoaderReflection extends InjectVisitCode {
             if (opcode == Opcodes.INVOKESTATIC
                     && "java/lang/Class".equals(owner)
                     && "forName".equals(name)
-                    && descriptor.startsWith("(Ljava/lang/String;)")) {
+                    && descriptor.startsWith("(Ljava/lang/String;")) {
 
                 mv.visitLdcInsn(context.getPluginName());
+
 
                 mv.visitMethodInsn(Opcodes.INVOKESTATIC,
                         "cc/zyycc/common/bridge/SafeClassForNameBridge",
@@ -58,10 +60,15 @@ public class JavaPluginLoaderReflection extends InjectVisitCode {
                         name, // getField 或 getDeclaredField
                         "(Ljava/lang/Class;Ljava/lang/String;)Ljava/lang/reflect/Field;",
                         false);
-
             } else {
                 mv.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
             }
         };
+    }
+
+
+    @Override
+    public boolean needFrame() {
+        return false;
     }
 }

@@ -1,7 +1,10 @@
 plugins {
     id 'java'
 }
-
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
 group = 'org.example'
 version = '1.0-SNAPSHOT'
 
@@ -9,10 +12,140 @@ repositories {
     mavenCentral()
 }
 
+def libs = [
+//        "org.ow2.asm:asm:9.8",
+//        "org.ow2.asm:asm-commons:9.8",
+//        "org.ow2.asm:asm-tree:9.8",
+//        "org.ow2.asm:asm-util:9.8",
+//        "org.ow2.asm:asm-analysis:9.8",
+//        "cpw.mods:modlauncher:8.1.3",
+//        "cpw.mods:grossjava9hacks:1.3.3",
+//        "net.minecraftforge:accesstransformers:3.0.1",
+//        "org.antlr:antlr4-runtime:4.9.1",
+//        "net.minecraftforge:eventbus:4.0.0",
+//        "net.minecraftforge:forgespi:3.2.0",
+//        "net.minecraftforge:coremods:4.0.6",
+//        "net.minecraftforge:unsafe:0.2.0",
+//        "com.electronwill.night-config:core:3.6.3",
+//        "com.electronwill.night-config:toml:3.6.3",
+//        "org.jline:jline:3.12.1",
+//        "org.apache.maven:maven-artifact:3.6.3",
+//        "net.jodah:typetools:0.8.3",
+//        "org.apache.logging.log4j:log4j-api:2.15.0",
+//        "org.apache.logging.log4j:log4j-core:2.15.0",
+//        "org.apache.logging.log4j:log4j-slf4j18-impl:2.15.0",
+//        "net.minecrell:terminalconsoleappender:1.2.0",
+//        "net.sf.jopt-simple:jopt-simple:5.0.4",
+//        "org.spongepowered:mixin:0.8.4",
+//      "net.minecraftforge:nashorn-core-compat:15.1.1.1",
+//     "net.minecraft:server:1.16.5-20210115.111550"
+]
+
+def extraLibs = [
+        "net.md-5:SpecialSource:1.11.5", "commons-lang:commons-lang:2.6",
+        "org.xerial:sqlite-jdbc:3.34.0",
+        "org.slf4j:slf4j-api:1.7.30", "org.slf4j:slf4j-nop:1.7.36",
+        "com.googlecode.json-simple:json-simple:1.1.1"]
+
 dependencies {
+//    implementation("org.slf4j:slf4j-api:1.7.30")
+    // implementation('org.apache.logging.log4j:log4j-slf4j-impl:2.15.0')
+
+    extraLibs.forEach { lib -> compileOnly(lib) }
+
+    implementation "net.sf.jopt-simple:jopt-simple:5.0.4"
+    implementation "io.netty:netty-handler:4.1.25.Final"
+    implementation "io.netty:netty-codec:4.1.25.Final"
+//    implementation 'commons-lang:commons-lang:2.6'
+}
+
+configurations {
+//    runtimeClasspath {
+//        exclude group: 'org.slf4j', module: 'slf4j-simple'
+//    }
+}
+
+tasks.named('jar') {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    //dependsOn project(':zyy-bk').tasks.named('trimSpigotJar')
+//    from(project(':zyy-bk').remapSrg) {
+//        into 'mappings'
+//    }
+}
+jar {
+    manifest {
+        attributes(
+                'Premain-Class': 'cc.zyycc.common.tool.BootstrapAgent',
+                'Agent-Class': 'cc.zyycc.common.tool.BootstrapAgent',
+                'Can-Redefine-Classes': 'true',
+                'Can-Retransform-Classes': 'true'
+        )
+    }
+
+    from({
+        project(':zyy-agent').tasks.named('jar').get().archiveFile.get().asFile
+    }) {
+        into("${server_id}")
+        rename { fileName -> "zyy-agent.jar" }
+    }
+
+    from({
+        project(':zyy-bridge').tasks.named('jar').get().archiveFile.get().asFile
+    }) {
+        into("${server_id}")
+        rename { fileName -> "zyy-bridge.jar" }
+    }
 
 }
 
-test {
-    useJUnitPlatform()
+
+def generatedSrcDir = file("$buildDir/generated-src")
+def allLibs = libs + extraLibs
+tasks.register('generateVersionInfo') {
+
+    doLast {
+        println "📦 开始生成 VersionInfo.java..."
+        def pkgDir = new File(generatedSrcDir, "cc/zyycc/common")
+        pkgDir.mkdirs()
+        def versionFile = new File(pkgDir, "VersionInfo.java")
+
+        def extraLibs2 = allLibs.collect {
+            {
+                "\"${it}\""
+            }
+        }.join(", ")
+
+        versionFile.text = """
+            package cc.zyycc.common;
+            import java.util.List;
+            public class VersionInfo {
+                public static final String MINECRAFT_VERSION = "${minecraftVersion}";
+                public static final String FORGE_VERSION = "${forgeVersion}";
+                public static final String VERSION_NAME = "${versionName}";
+                public static final String FORGE_FULL_VERSION = "${forgeFullVersion}";
+                public static final String INTERNALPATH = "${server_id}";
+                public static final String INTERNALPATH_INSTALL_DIR = "${server_id}/forge-${forgeFullVersion}-installer.jar";
+                public static final String WORKING_DIR = "${workingDir}";
+                public static final String INSTALLER_FILE = "${workingDir}/forge-${forgeFullVersion}-installer.jar";
+                public static final String CACHE_DIR = "${cachePath}";
+                public static final String BUKKIT_VERSION = "${bukkitVersion}";
+                public static final String MCP_VERSION = "20210115.111550";
+                public static final String[] EXTRA_LIBS = new String[] {$extraLibs2};
+                public static final String[] LAUNCHER_ARGS = new String[] {
+                 "--gameDir", ".", 
+                 "--launchTarget", "fmlserver",
+                 "--fml.mcVersion", "${minecraftVersion}",
+                 "--fml.forgeVersion", "${forgeVersion}",
+                 "--fml.mcpVersion", "20210115.111550",
+                 "--fml.forgeGroup", "net.minecraftforge",
+                };     
+            }
+        """
+        println "✅ 生成完成: VersionInfo.java"
+    }
 }
+compileJava.dependsOn(generateVersionInfo)
+sourceSets.main.java.srcDirs += generatedSrcDir

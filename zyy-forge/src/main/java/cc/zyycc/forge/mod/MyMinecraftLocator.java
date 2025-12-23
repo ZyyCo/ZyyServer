@@ -33,7 +33,6 @@ public class MyMinecraftLocator extends AbstractJarFileLocator {
     @Override
     public List<IModFile> scanMods() {
         ModFile modFile = ModFile.newFMLInstance(mcPath, this);
-
         return Collections.singletonList(modFile);
     }
 

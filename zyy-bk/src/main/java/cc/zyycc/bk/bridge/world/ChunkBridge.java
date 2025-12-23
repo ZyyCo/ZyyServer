@@ -1,4 +1,7 @@
 package cc.zyycc.bk.bridge.world;
 
-public class ChunBridge {
+public interface ChunkBridge {
+
+   void bridge$loadCallback();
+   void bridge$unloadCallback();
 }

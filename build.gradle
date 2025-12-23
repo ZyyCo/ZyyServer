@@ -1,7 +1,11 @@
 plugins {
     id 'java'
-}
 
+}
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
 group = 'cc.zyycc'
 version = '1.0-SNAPSHOT'
 
@@ -14,9 +18,20 @@ ext {
     forgeVersion = '36.2.34'
     forgeFullVersion = "${minecraftVersion}-${forgeVersion}"
     versionName = '1.0.0'
-    workingDir = ".${server_id}" 
+    workingDir = "."
+    cachePath = ".${server_id}"
+    bukkitVersion = 'v1_16_R3'
 }
 
+dependencies {
+}
+//application {
+//    applicationDefaultJvmArgs = [
+//            '--add-opens', 'jdk.attach/sun.tools.attach=ALL-UNNAMED',
+//            '--add-exports', 'jdk.attach/com.sun.tools.attach=ALL-UNNAMED',
+//            '-Djdk.attach.allowAttachSelf=true'
+//    ]
+//}
 
 
 //禁用编译
@@ -26,9 +41,10 @@ tasks.named('jar').configure {
 
 
 
+
 //编译
 tasks.register('collectJars', Copy) {
-    destinationDir = file('build/libs')
+    destinationDir = file 'build/libs'
     from { project(':zyy-launcher').tasks.jar.outputs }
     dependsOn { project(':zyy-launcher').tasks.jar }
 }
@@ -38,12 +54,6 @@ tasks.register('collectJars', Copy) {
 tasks.build {
     finalizedBy tasks.collectJars
 }
-
-
-test {
-    useJUnitPlatform()
-}
-
 
 jar {
     manifest {

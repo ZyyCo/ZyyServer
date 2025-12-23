@@ -1,19 +1,30 @@
 plugins {
-    id 'java-gradle-plugin'
+//    id 'groovy'
+//    id 'maven-publish'
+    id 'java'
+
+
 }
 repositories {
     mavenCentral()
-}
-gradlePlugin {
-    plugins {
-        pluginExtension {
-            id = "cc.zyycc.gradle"
-            implementationClass = "cc.zyycc.gradle.PluginExtension"
-        }
+    maven {
+        url = 'https://files.minecraftforge.net/maven'
     }
 }
 
 
 dependencies {
     implementation 'org.ow2.asm:asm:9.8'
+    implementation 'net.minecraftforge.gradle:ForgeGradle:5.1+'
+    implementation 'net.md-5:SpecialSource:1.11.5'
 }
+
+//gradlePlugin {
+//    plugins {
+//        pluginExtension {
+//            id = "cc.zyycc.plugin"
+//            implementationClass = "cc.zyycc.plugin.PluginExtension"
+//        }
+//    }
+//}
+//

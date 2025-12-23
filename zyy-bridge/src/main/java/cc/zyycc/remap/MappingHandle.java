@@ -1,11 +1,11 @@
-package cc.zyycc.common.mapper;
+package cc.zyycc.remap;
 
 import java.util.function.Consumer;
 
 public class MappingHandle {
-    private final MappingEntry leftEntry;
-    private final MappingEntry rightEntry;
-    public MappingHandle(MappingEntry leftEntry, MappingEntry rightEntry) {
+    private final BaseEntry leftEntry;
+    private final BaseEntry rightEntry;
+    public MappingHandle(BaseEntry leftEntry, BaseEntry rightEntry) {
         this.leftEntry = leftEntry;
         this.rightEntry = rightEntry;
     }
@@ -24,11 +24,11 @@ public class MappingHandle {
         consumer.accept(this);
     }
 
-    public MappingEntry getLeftEntry() {
+    public BaseEntry getLeftEntry() {
         return leftEntry;
     }
 
-    public MappingEntry getRightEntry() {
+    public BaseEntry getRightEntry() {
         return rightEntry;
     }
 }

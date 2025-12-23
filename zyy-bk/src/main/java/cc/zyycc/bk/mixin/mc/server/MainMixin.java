@@ -1,15 +1,23 @@
-package cc.zyycc.bk.mixin.core.server;
+package cc.zyycc.bk.mixin.mc.server;
 
+import cc.zyycc.bk.bridge.server.SimpleBridge;
+import net.minecraft.resources.ResourcePackList;
 import net.minecraft.server.Main;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.datafix.codec.DatapackCodec;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(Main.class)
 public class MainMixin {
 
+    @Redirect(method = "main", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;func_240772_a_(Lnet/minecraft/resources/ResourcePackList;Lnet/minecraft/util/datafix/codec/DatapackCodec;Z)Lnet/minecraft/util/datafix/codec/DatapackCodec;"))
+    private static DatapackCodec mainCode(ResourcePackList p_240772_0_, DatapackCodec p_240772_1_, boolean p_240772_2_) {
+        DatapackCodec datapackCodec = MinecraftServer.func_240772_a_(p_240772_0_, p_240772_1_, p_240772_2_);
+        SimpleBridge.datapackCodec = datapackCodec;
 
-//    @Redirect(method = "lambda$main$3", at = @At(value = "NEW", target = "(Ljava/lang/Thread;Lnet/minecraft/util/registry/DynamicRegistries$Impl;Lnet/minecraft/world/storage/SaveFormat$LevelSave;Lnet/minecraft/resources/ResourcePackList;Lnet/minecraft/resources/DataPackRegistries;Lnet/minecraft/world/storage/IServerConfiguration;Lnet/minecraft/server/ServerPropertiesProvider;Lcom/mojang/datafixers/DataFixer;Lcom/mojang/authlib/minecraft/MinecraftSessionService;Lcom/mojang/authlib/GameProfileRepository;Lnet/minecraft/server/management/PlayerProfileCache;Lnet/minecraft/world/chunk/listener/IChunkStatusListenerFactory;)Lnet/minecraft/server/dedicated/DedicatedServer;"))
-//    @SuppressWarnings("target")
-//    private static DedicatedServer main(Thread thread, DynamicRegistries.Impl p_i232601_2_, SaveFormat.LevelSave p_i232601_3_, ResourcePackList p_i232601_4_, DataPackRegistries p_i232601_5_, IServerConfiguration iServerConfiguration, ServerPropertiesProvider p_i232601_7_, DataFixer dataFixer, MinecraftSessionService p_i232601_9_, GameProfileRepository p_i232601_10_, PlayerProfileCache playerProfileCache, IChunkStatusListenerFactory p_i232601_12_) {
-//        return new CDedicatedServer(thread, p_i232601_2_, p_i232601_3_, p_i232601_4_, p_i232601_5_, iServerConfiguration, p_i232601_7_, dataFixer, p_i232601_9_, p_i232601_10_, playerProfileCache, p_i232601_12_);
-//    }
+        return datapackCodec;
+    }
+
 }

@@ -1,2 +1,5 @@
-package cc.zyycc.bk.bridge.tileentity;public class CommandBlockLogicBridge {
+package cc.zyycc.bk.bridge.tileentity;
+
+public interface CommandBlockLogicBridge {
+
 }

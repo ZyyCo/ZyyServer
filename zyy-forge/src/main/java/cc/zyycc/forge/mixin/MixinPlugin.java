@@ -1,4 +1,4 @@
-package cc.zyycc.bk.plugins;
+package cc.zyycc.forge.mixin;
 
 import cpw.mods.modlauncher.serviceapi.ILaunchPluginService;
 import org.objectweb.asm.Type;
@@ -9,10 +9,10 @@ import org.spongepowered.asm.mixin.Mixins;
 import java.nio.file.Path;
 import java.util.EnumSet;
 
-public class BKMixinPlugin implements ILaunchPluginService {
+public class MixinPlugin implements ILaunchPluginService {
     @Override
     public String name() {
-        return "zyybkmixin";
+        return "zyymixin";
     }
 
     @Override

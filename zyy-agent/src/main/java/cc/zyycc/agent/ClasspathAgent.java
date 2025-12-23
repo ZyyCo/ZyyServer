@@ -1,149 +1,234 @@
 package cc.zyycc.agent;
 
-import cc.zyycc.agent.enhancer.AsmEnhancer;
-import cc.zyycc.agent.enhancer.code.ModDiscoverer$LocatorClassLoaderCode;
-import cc.zyycc.agent.enhancer.code.ErrorCode;
-import cc.zyycc.agent.enhancer.code.ModDiscovererCode;
-import cc.zyycc.agent.enhancer.code.TransformingClassLoaderCode;
 
-import java.lang.instrument.ClassFileTransformer;
+import cc.zyycc.agent.inject.*;
+import cc.zyycc.agent.inject.hookResult.IInjectResult;
+import cc.zyycc.agent.inject.hookResult.InjectInNewFunction;
+import cc.zyycc.agent.inject.method.InjectPoint;
+import cc.zyycc.agent.inject.returnType.ReturnType;
+import cc.zyycc.agent.inject.returnType.InjectReturnType;
+import cc.zyycc.agent.inject.visitCode.*;
+import cc.zyycc.agent.plugin.scan.SuperClassPreloader;
+import cc.zyycc.agent.transformer.FieldSignatureTransformer;
+import cc.zyycc.agent.transformer.NmsRemapTransformer;
+import cc.zyycc.agent.transformer.TransformerProvider;
+import cc.zyycc.agent.util.FieldNameHandle;
+import cc.zyycc.agent.util.FieldDescHandle;
+import cc.zyycc.common.VersionInfo;
+import cc.zyycc.remap.method.MappingManager;
+import cc.zyycc.util.StrClassName;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.lang.instrument.Instrumentation;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+
 
 public class ClasspathAgent {
+    public static final Map<String, Consumer<MethodVisitor>> map = new ConcurrentHashMap<>();
+
+    public static final String BK_NMS_CONSTRUCTOR = "(Lnet/minecraft/server/MinecraftServer;Ljava/util/concurrent/Executor;Lnet/minecraft/world/storage/SaveFormat$LevelSave;Lnet/minecraft/world/storage/IServerWorldInfo;Lnet/minecraft/util/RegistryKey;Lnet/minecraft/world/DimensionType;Lnet/minecraft/world/chunk/listener/IChunkStatusListener;Lnet/minecraft/world/gen/ChunkGenerator;ZJLjava/util/List;ZLorg/bukkit/World$Environment;Lorg/bukkit/generator/ChunkGenerator;)V";
+
+    public static final String NMS_CONSTRUCTOR = "(Lnet/minecraft/server/MinecraftServer;Ljava/util/concurrent/Executor;Lnet/minecraft/world/storage/SaveFormat$LevelSave;Lnet/minecraft/world/storage/IServerWorldInfo;Lnet/minecraft/util/RegistryKey;Lnet/minecraft/world/DimensionType;Lnet/minecraft/world/chunk/listener/IChunkStatusListener;Lnet/minecraft/world/gen/ChunkGenerator;ZJLjava/util/List;Z)V";
 
 
-    public static void agentmain(String agentArgs, Instrumentation inst) {
+    public static void start(String args, Instrumentation inst) {
+        System.out.println("Agent start");
+        MappingManager.init();
 
-        DeMethod errorMethod = new DeMethod("errorHandlingServiceLoader",
-                "(Ljava/lang/Class;Ljava/lang/ClassLoader;Ljava/util/function/Consumer;)Ljava/util/ServiceLoader;",
-                new ErrorCode());
-        printClassSource(inst, "cpw.mods.modlauncher.ServiceLoaderStreamUtils", errorMethod);
+        SuperClassPreloader.init();
+        for (ModifyPermissionModifiers value : ModifyPermissionModifiers.values()) {
+            inst.addTransformer(value.transformerProvider, true);
+        }
+        Injects fgASM = Injects.create("cc/zyycc/common/asm/forge/ServiceLoaderStreamUtilsAsm", "cc/zyycc/common/asm");
 
-        DeMethod modDiscovererCode = new DeMethod("<init>", new ModDiscovererCode());
-        printClassSource(inst, "net/minecraftforge/fml/loading/moddiscovery/ModDiscoverer", modDiscovererCode);
+        InjectVisitMethod errorHandlingServiceLoaderASM = fgASM.function("errorHandlingServiceLoaderASM", InjectPoint.INVOKE_BEFORE)
+                .args(0, 1).returnVisitMethod(1).register();
+        TransformerProvider errorHandlingServiceLoader = new TransformerProvider.Builder("cpw/mods/modlauncher/ServiceLoaderStreamUtils")
+                .forMethod("errorHandlingServiceLoader",
+                        "(Ljava/lang/Class;Ljava/lang/ClassLoader;Ljava/util/function/Consumer;)Ljava/util/ServiceLoader;"
+                        , errorHandlingServiceLoaderASM)
+                .build();
+        inst.addTransformer(errorHandlingServiceLoader, true);
 
 
-        DeMethod modDiscoverer$LocatorClassLoaderCode = new DeMethod("<init>", new ModDiscoverer$LocatorClassLoaderCode());
-        printClassSource(inst, "net/minecraftforge/fml/loading/moddiscovery/ModDiscoverer$LocatorClassLoader", modDiscoverer$LocatorClassLoaderCode);
+        inst.addTransformer(new TransformerProvider.Builder("net/minecraftforge/fml/loading/moddiscovery/ModDiscoverer$LocatorClassLoader")
+                .forMethod("<init>", new ModDiscoverer$LocatorClassLoaderCode())
+                .build());
 
 
-        DeMethod transformingClassLoaderCode = new DeMethod("<init>", new TransformingClassLoaderCode());
-        printClassSource(inst, "cpw/mods/modlauncher/TransformingClassLoader", transformingClassLoaderCode);
+        inst.addTransformer(new TransformerProvider.Builder("cpw/mods/modlauncher/TransformingClassLoader")
+                .already()
+                .forMethod("<init>", new TransformingClassLoaderCode())
+                .build());
+        StrClassName.Clazz chunk = StrClassName.getStrClass("Chunk");
+        inst.addTransformer(new TransformerProvider.Builder("org/bukkit/craftbukkit/" + VersionInfo.BUKKIT_VERSION + "/CraftChunk")
+                .fieldSignature(
+                        new FieldNameHandle(chunk.toString(), chunk.getConfusionField("world"), "serverWorld"),
+                        new FieldDescHandle("[Ljava/util/List;", "[Lnet/minecraft/util/ClassInheritanceMultiMap;", true))//owner
+                .build());
 
 
+        inst.addTransformer(new TransformerProvider.Builder(
+                "org/bukkit/craftbukkit/" + VersionInfo.BUKKIT_VERSION + "/CraftWorld",
+                "org/bukkit/craftbukkit/" + VersionInfo.BUKKIT_VERSION + "/CraftServer")
+                .already()
+                .forMethod("*", new CraftServerVisit())
+                .build());
+
+
+        //反射
+        FieldSignatureTransformer aaaTransformer = new FieldSignatureTransformer();
+        inst.addTransformer(aaaTransformer, true);
+
+
+        StrClassName.Clazz commands = StrClassName.getStrClass("Commands");
+
+        String dispatcherField = commands.getConfusionField("dispatcher");
+        Injects commandsASM = Injects.create("cc/zyycc/bk/asm/mc/CommandAsm", "cc/zyycc/bk/asm/util");
+        //field_197062_b
+        InjectInNewFunction dispatcherInject = commandsASM.inNewFunction("getConstructor")
+                .captureField(dispatcherField)
+                .returnType(dispatcherField, "Lcom/mojang/brigadier/CommandDispatcher;")
+                .register();
+        InjectVisitMethod injectDispatch = commandsASM.function("handleCommandAsm")
+                .cancelableHookResult()
+                .targetField(InjectPoint.INVOKE_BEFORE, dispatcherField, "Lcom/mojang/brigadier/CommandDispatcher;", 2)
+                .args(0, 1, 2)
+                .register();
+
+        TransformerProvider field197062B = new TransformerProvider.Builder(commands)
+                .already()
+                .forMethod(commands.getConfusionMethod("handleCommand"), "*", injectDispatch)
+                .createConstructor("()V", dispatcherInject)
+                .build();
+
+        inst.addTransformer(field197062B, true);
+
+
+
+        TransformerProvider serverWorldConstructor = new TransformerProvider.Builder(StrClassName.getStrClassName("ServerWorld"))
+                .already()
+                .createConstructor(BK_NMS_CONSTRUCTOR, NMS_CONSTRUCTOR, 1, new ServerWorldConstructor())
+                .build();
+        inst.addTransformer(serverWorldConstructor, true);
+
+
+        InjectVisitMethod nettySystemInjectAsm = Injects.create("cc/zyycc/bk/asm/mc/network/NetWorkSystemAsm")
+                .function("guard", InjectPoint.RETURN_BEFORE)
+                .args(1)
+                .register();
+
+        TransformerProvider nettySystem = new TransformerProvider.Builder(StrClassName.getStrClassName("NetworkSystem$1"))
+                .already()
+                .forMethod("initChannel", nettySystemInjectAsm)
+                .build();
+        inst.addTransformer(nettySystem, true);
+
+
+//
+        pluginsEnhance(inst);
+        inst.addTransformer(new NmsRemapTransformer(), true);
+        StrClassName.clear();
     }
 
-    public static void printClassSource(Instrumentation inst, String tarClassName, DeMethod deMethod) {
-        String targetClassName = tarClassName.replace('.', '/');
-        inst.addTransformer(transformerWithSelfReference(inst, targetClassName, deMethod), true);
-    }
-
-    public static ClassFileTransformer transformerWithSelfReference(Instrumentation inst, String targetClassName, DeMethod deMethod) {
-
-        AtomicReference<ClassFileTransformer> ref = new AtomicReference<>();
-        AtomicReference<String> capturedClassName = new AtomicReference<>();
-        Map<String, ClassLoader> loaderMap = new ConcurrentHashMap<>();
-        AtomicReference<Boolean> isLoaded = new AtomicReference<>(false);
-        ClassFileTransformer transformer = (loader, className, classBeingRedefined, protectionDomain, classfileBuffer) -> {
-
-            if (className.equals(targetClassName)) {
-
-                try {
-                    //存入map
-                    String classNameDot = className.replace('/', '.');
-                    loaderMap.put(classNameDot, loader);
-                    capturedClassName.set(classNameDot);
-                    //插入字节码
-                    byte[] enhance = AsmEnhancer.enhance(classfileBuffer, deMethod);
-
-                    return enhance;
-                    //System.out.println("🔧 是否可修改: " + inst.isModifiableClass(classBeingRedefined));
-
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                } finally {
-                    isLoaded.set(true);
-                   // inst.removeTransformer(ref.get());
-                }
-            }
-            return null;
-
-        };
-
-        ref.set(transformer);
+    public static void pluginsEnhance(Instrumentation inst) {
 
 
-        // 然后在 main 线程 / 定时器中异步执行：
-        new Thread(() -> {
-            while (!isLoaded.get()) {
-                try {
-                    Thread.sleep(500); // ⏳ 留足字节码注入时间
-                    String className = capturedClassName.get();
+        InjectVisitMethod javaPluginAsm = Injects.create("cc/zyycc/bk/asm/bk/gcore/ReflectionMethodAsm")
+                .function("reflectionMethodEnhancer")
+                .targetVisitInsn(Opcodes.DUP, 2, InjectPoint.INVOKE_AFTER)
+                .replaceLocal(2, ConditionReturn.STRING)
+                .args(1, 2, 3)
+                .register();
 
-                    if(className == null){
-                        continue;
+        TransformerProvider questInject = new TransformerProvider.Builder("com/guillaumevdn/gcore/lib/reflection/ReflectionMethod")
+                .already()
+                .classLoader("org.bukkit.plugin.java.PluginClassLoader")
+                .forMethod("<init>", javaPluginAsm)
+                .build();
+        inst.addTransformer(questInject, true);
+
+
+        //cmi
+        InjectVisitMethod cmiReflectionInject = Injects.create("cc/zyycc/bk/asm/bk/cmi/ReflectionsAsm")
+                .function("reflectionMethodEnhancer", InjectPoint.INVOKE_BEFORE)
+                .args(1, 2, 3)
+                .replaceLocal(1, ConditionReturn.STRING)
+                .register();
+
+        TransformerProvider cmiReflection = new TransformerProvider.Builder("net/Zrips/CMILib/Reflections")
+                .already()
+                .classLoader("org.bukkit.plugin.java.PluginClassLoader")
+                .forMethod("getMethod", cmiReflectionInject)
+                .build();
+        inst.addTransformer(cmiReflection, true);
+
+
+        InjectVisitMethod protocolInjectorInject = Injects.create("cc/zyycc/bk/asm/mc/network/NetWorkSystemAsm")
+                .function("isLoginPhase")
+                .targetField(InjectPoint.INVOKE_BEFORE, "closed", "Z", 1)
+                .argFieldName("networkManager")
+                .customInjectResult(new IInjectResult() {
+                    @Override
+                    public int injectResult(MethodVisitor mv, int resultIndex, String currentClassName) {
+                        Label skipReturn = new Label();
+                        mv.visitJumpInsn(Opcodes.IFEQ, skipReturn);
+                        mv.visitInsn(ConditionReturn.BOOLEAN_FALSE.getIconst());
+                        mv.visitVarInsn(Opcodes.ALOAD, 1);
+                        mv.visitInsn(Opcodes.MONITOREXIT);
+                        mv.visitInsn(Opcodes.IRETURN);
+                        mv.visitLabel(skipReturn);
+                        return resultIndex;
                     }
 
-                    ClassLoader loader = loaderMap.get(className);
-                    if (loader != null) {
-                        Class<?> clazz = Class.forName(className, false, loader);
-                        inst.retransformClasses(clazz);
-                    } else {
-                        loaderMap.remove(className);
-                        System.err.println("⚠️ 等待加载类失败");
+                    @Override
+                    public InjectReturnType getReturnType(MethodVisitor mv, String currentClassName) {
+                        return new ReturnType("Z");
                     }
 
-                } catch (Exception e) {
-//                    System.err.println("❌ 获取类失败！");
-                    e.printStackTrace();
-                }
-            }
+                    @Override
+                    public boolean needFrame() {
+                        return true;
+                    }
+                })
+                .register();
+        //networkManager
 
-        }).start();
-
-
-        return transformer;
+        TransformerProvider protocolInjector = new TransformerProvider.Builder("com/comphenix/protocol/injector/netty/ChannelInjector")
+                .already()
+                .forMethod("inject", protocolInjectorInject)
+                .build();
+        inst.addTransformer(protocolInjector, true);
     }
 
-    private static Object findSingleton(Class<?> clazz) throws Exception {
-        // 一般是 getInstance / INSTANCE / instance 单例
+
+    public static void dump(String className, byte[] bytes) {
         try {
-            Method getInstance = clazz.getDeclaredMethod("getInstance");
-            getInstance.setAccessible(true);
-            return getInstance.invoke(null);
-        } catch (NoSuchMethodException e) {
-            // fallback：去找静态字段 INSTANCE
-            for (Field f : clazz.getDeclaredFields()) {
-                if (Modifier.isStatic(f.getModifiers()) && f.getType().equals(clazz)) {
-                    f.setAccessible(true);
-                    return f.get(null);
-                }
+            Path outDir = Paths.get("agent"); // 输出目录
+            Files.createDirectories(outDir);
+
+            Path outFile = outDir.resolve(className.replace('.', '/') + ".class");
+            Files.createDirectories(outFile.getParent());
+
+            try (FileOutputStream fos = new FileOutputStream(outFile.toFile())) {
+                fos.write(bytes);
             }
+
+            //    System.out.println("Class dumped to: " + outFile.toAbsolutePath());
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        return null;
     }
 
-    public static Map<String, String> parseAgentArgs(String args) {
-        Map<String, String> map = new HashMap<>();
-        if (args != null) {
-            for (String entry : args.split(";")) {
-                String[] parts = entry.split("=", 2);
-                if (parts.length == 2) {
-                    map.put(parts[0].trim(), parts[1].trim());
-                }
-            }
-        }
-        return map;
-    }
 
 }

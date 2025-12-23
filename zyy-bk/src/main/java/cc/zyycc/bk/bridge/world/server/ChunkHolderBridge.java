@@ -5,4 +5,7 @@ import net.minecraft.world.chunk.Chunk;
 public interface ChunkHolderBridge {
 
     Chunk bridge$getFullChunk();
+
+
+
 }

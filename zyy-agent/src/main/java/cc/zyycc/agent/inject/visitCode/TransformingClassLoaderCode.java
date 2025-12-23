@@ -1,4 +1,4 @@
-package cc.zyycc.agent.enhancer.visitor;
+package cc.zyycc.agent.inject.visitCode;
 
 import cc.zyycc.agent.inject.visitCode.MyMethodVisitor;
 import cc.zyycc.agent.inject.visitCode.InjectVisitCode;
@@ -12,12 +12,9 @@ import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 
 public class TransformingClassLoaderCode extends InjectVisitCode {
 
-
-
     @Override
     public Consumer<MethodVisitor> visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface, MyMethodVisitor context) {
         return mv -> {
-
             if (
                     opcode == Opcodes.INVOKESPECIAL &&
                     "java/lang/ClassLoader".equals(owner) &&
@@ -39,7 +36,6 @@ public class TransformingClassLoaderCode extends InjectVisitCode {
                         "(Ljava/lang/ClassLoader;)V",
                         false);
 
-                System.out.println("agentClassLoader" + getClass().getClassLoader());
 
             } else {
                 // 保留原始调用
@@ -49,5 +45,10 @@ public class TransformingClassLoaderCode extends InjectVisitCode {
 
 
         };
+    }
+
+    @Override
+    public boolean needFrame() {
+        return false;
     }
 }

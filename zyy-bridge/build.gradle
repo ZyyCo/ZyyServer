@@ -1,0 +1,40 @@
+plugins {
+    id 'java'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(':zyy-common')
+    // implementation project(':zyy-agent')
+    compileOnly('org.ow2.asm:asm:9.8')
+    compileOnly('org.ow2.asm:asm-commons:9.8')
+    compileOnly('net.md-5:SpecialSource:1.11.5')
+//    List<java.nio.file.Path> paths = DownloaderLib.downloadExtraMavenJar(new String[]{"org.ow2.asm:asm:9.8",
+//            "org.ow2.asm:asm-commons:9.8", "net.md-5:SpecialSource:1.11.5",
+//            "net.sf.jopt-simple:jopt-simple:5.0.4"});
+}
+
+jar {
+    //dependsOn project(':zyy-bk').tasks.named('trimSpigotJar')
+    def otherModule = project(':zyy-bk')
+    def srgFile = new File(otherModule.buildDir, "cache/remapSrg.srg")
+    def confusionFieldFile = new File(otherModule.buildDir, "cache/confusion_fField.txt")
+    def confusionMethodFile = new File(otherModule.buildDir, "cache/confusion_fMethod.txt")
+
+    from(srgFile) {
+        into 'mappings'
+    }
+    from(confusionFieldFile) {
+        into 'mappings'
+    }
+    from(confusionMethodFile) {
+        into 'mappings'
+    }
+}

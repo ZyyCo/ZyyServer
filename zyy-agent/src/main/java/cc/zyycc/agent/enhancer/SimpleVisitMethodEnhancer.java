@@ -1,15 +1,17 @@
-package cc.zyycc.agent.inject.visitCode;
+package cc.zyycc.agent.enhancer;
 
-import cc.zyycc.agent.enhancer.TargetMethod;
-import cc.zyycc.agent.inject.IInjectVisitMethod;
-import cc.zyycc.agent.enhancer.ClassEnhancer;
+import cc.zyycc.agent.inject.IInjectMode;
+import cc.zyycc.agent.inject.visitCode.InjectVisitCode;
+import cc.zyycc.agent.inject.visitCode.MyMethodVisitor;
 import cc.zyycc.agent.transformer.TransformerProvider;
 import org.objectweb.asm.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-public class SimpleVisitMethodEnhancer implements ClassEnhancer {
+public class SimpleVisitMethodEnhancer extends BaseEnhancer<InjectVisitCode> {
 
 
     private boolean enhancer;
@@ -18,19 +20,18 @@ public class SimpleVisitMethodEnhancer implements ClassEnhancer {
 
     }
 
-
+    public Map<TargetMethod, InjectVisitCode> targetMethods = new ConcurrentHashMap<>();
     @Override
     public ClassVisitor createVisitor(ClassWriter cw, TransformerProvider transformer, String pluginName, String className, ClassLoader classLoader) {
 
         return new ClassVisitor(Opcodes.ASM9, cw) {
             @Override
             public MethodVisitor visitMethod(int access, String methodName, String descriptor, String signature, String[] exceptions) {
-                Map<TargetMethod, List<IInjectVisitMethod>> targetMethod = transformer.getTargetMethod();
-                for (TargetMethod method : targetMethod.keySet()) {
-                    if (method.isTargetMethod(methodName, descriptor)) {
+                for (Map.Entry<TargetMethod, InjectVisitCode> entry : targetMethods.entrySet()) {
+                    TargetMethod targetMethod = entry.getKey();
+                    if (targetMethod.isTargetMethod(methodName, descriptor)) {
                         MethodVisitor base = super.visitMethod(access, methodName, descriptor, signature, exceptions);
-                        IInjectVisitMethod iInjectVisitMethod = targetMethod.get(method).get(0);
-                        MyMethodVisitor wrapped = new MyMethodVisitor(Opcodes.ASM9, base, (InjectVisitCode) iInjectVisitMethod, pluginName, classLoader, methodName);
+                        MyMethodVisitor wrapped = new MyMethodVisitor(Opcodes.ASM9, base, entry.getValue(), pluginName, classLoader, methodName);
                         enhancer = wrapped.isEnhancer();
                         return wrapped;
                     }
@@ -45,6 +46,11 @@ public class SimpleVisitMethodEnhancer implements ClassEnhancer {
     @Override
     public boolean enhancer() {
         return enhancer;
+    }
+
+    @Override
+    public void addOrMerge(TargetMethod targetMethod, InjectVisitCode injectVisitCode) {
+        targetMethods.put(targetMethod, injectVisitCode);
     }
 
 

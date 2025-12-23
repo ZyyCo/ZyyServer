@@ -1,37 +1,28 @@
 package cc.zyycc.remap.cache;
 
-import java.nio.file.Path;
-import java.util.List;
+public class ArrayRule implements CacheRule {
 
-public class ArrayCache extends BaseCache<String>{
-
-
-    public ArrayCache(Path dir, String cacheFile, String cacheFailFile) {
-        super(dir, cacheFile, cacheFailFile);
-    }
 
     @Override
-    public String getSuccessCache(String search) {
-        return "";
-    }
+    public BaseCache.Rule lineRule(String line) {
 
-    @Override
-    public String getFailCache(String search) {
-        return "";
-    }
+        int s1 = line.indexOf(' ');
 
-    @Override
-    public boolean hasSuccessCache(String search) {
-        return false;
-    }
+        int arr = line.indexOf('[');
+        int arr2 = line.indexOf(']');
+        // Fail case (no space)
+        if (arr == -1 || arr2 == -1) {
+            return new BaseCache.Rule(line);
+        }
+        String array = line.substring(arr, arr2 + 1).trim();
+        if (s1 == -1) {
+            return new BaseCache.Rule(line.substring(0, arr), array);
+        }
 
-    @Override
-    public boolean hasFailCache(String searchEntry) {
-        return false;
-    }
 
-    @Override
-    public List<String> get() {
-        return List.of();
+        String left = line.substring(0, s1);
+        String right = array;
+
+        return new BaseCache.Rule(left, right);
     }
 }
